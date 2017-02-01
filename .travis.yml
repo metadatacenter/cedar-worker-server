@@ -1,0 +1,24 @@
+sudo: required
+dist: trusty
+
+language: java
+jdk:
+- oraclejdk8
+branches:
+  only:
+  - develop
+  - master
+cache:
+  directories:
+  - $HOME/.m2
+notifications:
+  email:
+    recipients:
+    - cedar-core-developers@lists.stanford.edu
+    on_success: never
+    on_failure: always
+install: '[ ${TRAVIS_PULL_REQUEST} = ''false'' ] && mvn -DskipTests=true clean deploy --settings .m2/travis-settings.xml'
+env:
+  global:
+  - secure: VY75RBRihpTX2ShZ7X+oW5rt37FK2TB0dmIjrPy914dx4m30Bq+QSx5p9F65rfsWyta1KkBGC6af6/MUS0tELMqmZl2vgRVJANMCmcdafY9/3nOiY1w6kEDEjN0Nih2/PfPW82wq/asUKk7jiZT2qJjEvQT6ZAQMQCb20V4PBn1zrqxIw5WinYbrMX59gcW8H3paJhwkMDhLL2lAtAWNWLIKB934hIKrE2NcizPbLKsPvtIwWYnFJ9PsAU2UNQA5ZQnHh+7ZwnCdPM/xCkdWsnMkF0wrgSsrvOQwzaeOo1RPCwst04CHIrlpIPwb9XB/RfxOnmKB2MVBBhXJ4621ZEhxKNBA+09b6uVREBuYKjuwiSdH7eH5MtwSsLGeDe9OWnt3SLELnKAi/bVl80bM3LFl5m9wwY+MXBo5DJ5vlY911QCIqps+HwVOQhpTNbj8KFl/QAd8zQgcn5Ux1DjMUC38DCJP7hAGOf5R+K2jEoBXIxLeWY0urtiy8smaGGXjkqBttu6eJmQjnsePQJdr703I7K6bYcWiZOg2aBRXwCcJqCdMyKHAFK8JG86tLrPlZna1Vpl3kVp9T3BdvOs7vJ/P3kJkq3wWsBJJvyeCwNEY9UwjTz2DnUPIWMk0GT8eboO95kJ4beLR7TZSaWDKpVKjkjPGhnTe9bmZCayEPH4=
+  - secure: k03YX0wva4I0i1uaGon23j2icD7bjfq5U8prA6WQWvXQJXs4DOtojGIvavKvQd+lGnYaVubPAhvIrUYvFrAw3joxoLq5V7DGjY6T1GMmY/2SHBbebK6VuR4AojSLDPzZG2UmjBsow9LFZUjPeqjoBFO0lP0BYzaYc5MxDo6TI8Ye8daRUXMW78Nvy4Y1iJpu8HJKY8fskYedIpK7jnMAMqaEhPIaDF6MDLaO+6vTBg0j6Y68tNtqzCHcjSXl3UbWvH1V0eAWS3jLJ+ZQcUqpxr5m45sqBACjAHlCDc6Ug0s839s72JQpmgQF83Jjjn0PUiFUzmomRGJcnOMyDYW9EbVoCVNMWCeaZzVre7kvmiTvDi53vZgHozcGLTOZmiKRjqu2OdmXIM4Acv1f63JPkJi3tJMJctPTf1072e3pxDvI6NFpZAmxf+2ncljK8YdXkk/VXfALXQDz2TvzgVB8kwb5IkqlAK959IIYZ6tEaHLSZJAAphaMlkM/m6QhlHW9X8mwGRHknDIx2W1E3OxQl2/uqvu+xWSkWK/m0pKbyqy+zMxT67qx6QD+h5EUa8Z2g1eDl2Jz0ZuHTIp+KgDwEtunC0pV19a1FxqH5BcvHsS6P7oNpQKRVAm3IiPZv5WYThfDvp+KL5Pwu1ucJqexMlu9QiYwoXsVrM2een+NhCc=
