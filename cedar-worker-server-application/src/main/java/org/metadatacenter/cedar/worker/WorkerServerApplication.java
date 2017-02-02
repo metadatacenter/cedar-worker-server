@@ -8,15 +8,20 @@ import org.metadatacenter.cedar.util.dw.CedarDropwizardApplicationUtil;
 import org.metadatacenter.cedar.worker.health.WorkerServerHealthCheck;
 import org.metadatacenter.cedar.worker.resources.IndexResource;
 import org.metadatacenter.config.CedarConfig;
+import org.metadatacenter.config.ElasticsearchConfig;
+import org.metadatacenter.config.ElasticsearchSettingsMappingsConfig;
 import org.metadatacenter.server.cache.util.CacheService;
-import org.metadatacenter.server.search.util.SearchPermissionExecutorService;
+import org.metadatacenter.server.search.elasticsearch.ElasticsearchService;
+import org.metadatacenter.server.search.permission.PermissionSearchService;
+import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.worker.SearchPermissionQueueProcessor;
 
 public class WorkerServerApplication extends Application<WorkerServerConfiguration> {
 
-  protected static CedarConfig cedarConfig;
-  protected static CacheService cacheService;
+  private static CedarConfig cedarConfig;
+  private static CacheService cacheService;
   private static SearchPermissionExecutorService searchPermissionExecutorService;
+  private static PermissionSearchService permissionSearchService;
 
 
   public static void main(String[] args) throws Exception {
@@ -37,7 +42,15 @@ public class WorkerServerApplication extends Application<WorkerServerConfigurati
 
     cacheService = new CacheService(cedarConfig.getCacheConfig().getPersistent());
 
-    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig);
+    ElasticsearchConfig esc = cedarConfig.getElasticsearchConfig();
+    ElasticsearchSettingsMappingsConfig essmc = cedarConfig.getElasticsearchSettingsMappingsConfig();
+
+    permissionSearchService = new PermissionSearchService(cedarConfig, new ElasticsearchService(esc, essmc),
+        esc.getIndex(),
+        esc.getTypePermission()
+    );
+
+    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, permissionSearchService);
   }
 
   @Override

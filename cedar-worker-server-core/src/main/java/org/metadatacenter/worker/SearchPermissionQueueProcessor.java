@@ -4,7 +4,8 @@ import io.dropwizard.lifecycle.Managed;
 import org.metadatacenter.config.CacheServerPersistent;
 import org.metadatacenter.server.cache.util.CacheService;
 import org.metadatacenter.server.search.SearchPermissionQueueEvent;
-import org.metadatacenter.server.search.util.SearchPermissionExecutorService;
+import org.metadatacenter.server.search.permission.PermissionSearchService;
+import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.util.json.JsonMapper;
 import redis.clients.jedis.Jedis;
 
