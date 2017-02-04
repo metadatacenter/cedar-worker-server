@@ -47,7 +47,7 @@ public class WorkerServerApplication extends Application<WorkerServerConfigurati
 
     permissionSearchService = new PermissionSearchService(cedarConfig, new ElasticsearchService(esc, essmc),
         esc.getIndex(),
-        esc.getTypePermission()
+        esc.getTypePermissions()
     );
 
     searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, permissionSearchService);
