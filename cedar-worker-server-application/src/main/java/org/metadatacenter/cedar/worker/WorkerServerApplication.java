@@ -1,28 +1,26 @@
 package org.metadatacenter.cedar.worker;
 
-import io.dropwizard.Application;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import org.metadatacenter.bridge.CedarDataServices;
-import org.metadatacenter.cedar.util.dw.CedarDropwizardApplicationUtil;
+import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.health.WorkerServerHealthCheck;
 import org.metadatacenter.cedar.worker.resources.IndexResource;
-import org.metadatacenter.config.CedarConfig;
-import org.metadatacenter.config.ElasticsearchConfig;
-import org.metadatacenter.config.ElasticsearchSettingsMappingsConfig;
 import org.metadatacenter.server.cache.util.CacheService;
-import org.metadatacenter.server.search.elasticsearch.ElasticsearchService;
-import org.metadatacenter.server.search.permission.PermissionSearchService;
+import org.metadatacenter.server.search.elasticsearch.service.ElasticsearchServiceFactory;
+import org.metadatacenter.server.search.elasticsearch.service.GroupPermissionIndexingService;
+import org.metadatacenter.server.search.elasticsearch.service.NodeSearchingService;
+import org.metadatacenter.server.search.elasticsearch.service.UserPermissionIndexingService;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.worker.SearchPermissionQueueProcessor;
 
-public class WorkerServerApplication extends Application<WorkerServerConfiguration> {
+public class WorkerServerApplication extends CedarMicroserviceApplication<WorkerServerConfiguration> {
 
-  private static CedarConfig cedarConfig;
   private static CacheService cacheService;
   private static SearchPermissionExecutorService searchPermissionExecutorService;
-  private static PermissionSearchService permissionSearchService;
-
+  private static UserPermissionIndexingService userPermissionIndexingService;
+  private static GroupPermissionIndexingService groupPermissionIndexingService;
+  private static NodeSearchingService nodeSearchingService;
 
   public static void main(String[] args) throws Exception {
     new WorkerServerApplication().run(args);
@@ -30,31 +28,26 @@ public class WorkerServerApplication extends Application<WorkerServerConfigurati
 
   @Override
   public String getName() {
-    return "worker-server";
+    return "cedar-worker-server";
   }
 
   @Override
-  public void initialize(Bootstrap<WorkerServerConfiguration> bootstrap) {
-    cedarConfig = CedarConfig.getInstance();
-    CedarDataServices.getInstance(cedarConfig);
-
-    CedarDropwizardApplicationUtil.setupKeycloak();
-
+  public void initializeApp(Bootstrap<WorkerServerConfiguration> bootstrap) {
+    CedarDataServices.initializeFolderServices(cedarConfig);
     cacheService = new CacheService(cedarConfig.getCacheConfig().getPersistent());
 
-    ElasticsearchConfig esc = cedarConfig.getElasticsearchConfig();
-    ElasticsearchSettingsMappingsConfig essmc = cedarConfig.getElasticsearchSettingsMappingsConfig();
+    ElasticsearchServiceFactory esServiceFactory = ElasticsearchServiceFactory.getInstance(cedarConfig);
 
-    permissionSearchService = new PermissionSearchService(cedarConfig, new ElasticsearchService(esc, essmc),
-        esc.getIndex(),
-        esc.getTypePermissions()
-    );
+    userPermissionIndexingService = esServiceFactory.userPermissionsIndexingService();
+    groupPermissionIndexingService = esServiceFactory.groupPermissionsIndexingService();
+    nodeSearchingService = esServiceFactory.nodeSearchingService();
 
-    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, permissionSearchService);
+    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, userPermissionIndexingService,
+        groupPermissionIndexingService, nodeSearchingService);
   }
 
   @Override
-  public void run(WorkerServerConfiguration configuration, Environment environment) {
+  public void runApp(WorkerServerConfiguration configuration, Environment environment) {
 
     final IndexResource index = new IndexResource();
     environment.jersey().register(index);
@@ -62,12 +55,9 @@ public class WorkerServerApplication extends Application<WorkerServerConfigurati
     final WorkerServerHealthCheck healthCheck = new WorkerServerHealthCheck();
     environment.healthChecks().register("message", healthCheck);
 
-    CedarDropwizardApplicationUtil.setupEnvironment(environment);
-
     SearchPermissionQueueProcessor searchPermissionProcessor = new SearchPermissionQueueProcessor(cacheService,
         cedarConfig.getCacheConfig().getPersistent(),
         searchPermissionExecutorService);
     environment.lifecycle().manage(searchPermissionProcessor);
-
   }
 }
