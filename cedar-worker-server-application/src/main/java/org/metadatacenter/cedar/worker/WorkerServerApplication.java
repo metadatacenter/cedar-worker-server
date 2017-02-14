@@ -12,6 +12,7 @@ import org.metadatacenter.server.search.elasticsearch.service.GroupPermissionInd
 import org.metadatacenter.server.search.elasticsearch.service.NodeSearchingService;
 import org.metadatacenter.server.search.elasticsearch.service.UserPermissionIndexingService;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
+import org.metadatacenter.server.search.util.IndexUtils;
 import org.metadatacenter.worker.SearchPermissionQueueProcessor;
 
 public class WorkerServerApplication extends CedarMicroserviceApplication<WorkerServerConfiguration> {
@@ -36,14 +37,16 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     CedarDataServices.initializeFolderServices(cedarConfig);
     cacheService = new CacheService(cedarConfig.getCacheConfig().getPersistent());
 
+    IndexUtils indexUtils = new IndexUtils(cedarConfig);
+
     ElasticsearchServiceFactory esServiceFactory = ElasticsearchServiceFactory.getInstance(cedarConfig);
 
     userPermissionIndexingService = esServiceFactory.userPermissionsIndexingService();
     groupPermissionIndexingService = esServiceFactory.groupPermissionsIndexingService();
     nodeSearchingService = esServiceFactory.nodeSearchingService();
 
-    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, userPermissionIndexingService,
-        groupPermissionIndexingService, nodeSearchingService);
+    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils,
+        userPermissionIndexingService, groupPermissionIndexingService, nodeSearchingService);
   }
 
   @Override
