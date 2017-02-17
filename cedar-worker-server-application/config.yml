@@ -1,0 +1,23 @@
+server:
+  applicationConnectors:
+  - type: http
+    port: 9011
+  adminConnectors:
+  - type: http
+    port: 9111
+logging:
+  level: INFO
+  loggers:
+    org.metadatacenter: DEBUG
+  appenders:
+    - type: console
+      threshold: ALL
+      timeZone: UTC
+      target: stdout
+    - type: file
+      currentLogFilename: ${CEDAR_HOME}/log/cedar-worker-server.log
+      threshold: ALL
+      archive: true
+      archivedLogFilenamePattern: ${CEDAR_HOME}/log/cedar-worker-server-%d.log
+      archivedFileCount: 5
+      timeZone: UTC

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.metadatacenter</groupId>
+    <artifactId>cedar-parent</artifactId>
+    <version>0.9.3</version>
+  </parent>
+
+  <groupId>org.metadatacenter</groupId>
+  <artifactId>cedar-worker-server</artifactId>
+  <version>0.9.3</version>
+  <packaging>pom</packaging>
+
+  <name>CEDAR Worker Server</name>
+  <description>CEDAR server to perform background operations
+  </description>
+
+  <scm>
+    <connection>scm:git:git@github.com:metadatacenter/cedar-worker-server.git</connection>
+    <developerConnection>scm:git:git@github.com:metadatacenter/cedar-worker-server.git</developerConnection>
+    <url>https://github.com/metadatacenter/cedar-worker-server</url>
+    <tag>release-0.9.3</tag>
+  </scm>
+
+  <modules>
+    <module>cedar-worker-server-core</module>
+    <module>cedar-worker-server-application</module>
+  </modules>
+
+</project>
