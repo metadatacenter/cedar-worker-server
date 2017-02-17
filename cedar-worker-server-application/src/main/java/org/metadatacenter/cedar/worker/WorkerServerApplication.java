@@ -7,10 +7,7 @@ import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.health.WorkerServerHealthCheck;
 import org.metadatacenter.cedar.worker.resources.IndexResource;
 import org.metadatacenter.server.cache.util.CacheService;
-import org.metadatacenter.server.search.elasticsearch.service.ElasticsearchServiceFactory;
-import org.metadatacenter.server.search.elasticsearch.service.GroupPermissionIndexingService;
-import org.metadatacenter.server.search.elasticsearch.service.NodeSearchingService;
-import org.metadatacenter.server.search.elasticsearch.service.UserPermissionIndexingService;
+import org.metadatacenter.server.search.elasticsearch.service.*;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.server.search.util.IndexUtils;
 import org.metadatacenter.worker.SearchPermissionQueueProcessor;
@@ -22,6 +19,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   private static UserPermissionIndexingService userPermissionIndexingService;
   private static GroupPermissionIndexingService groupPermissionIndexingService;
   private static NodeSearchingService nodeSearchingService;
+  private static GroupPermissionSearchingService groupPermissionSearchingService;
 
   public static void main(String[] args) throws Exception {
     new WorkerServerApplication().run(args);
@@ -44,9 +42,11 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     userPermissionIndexingService = esServiceFactory.userPermissionsIndexingService();
     groupPermissionIndexingService = esServiceFactory.groupPermissionsIndexingService();
     nodeSearchingService = esServiceFactory.nodeSearchingService();
+    groupPermissionSearchingService = esServiceFactory.groupPermissionSearchingService();
 
     searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils,
-        userPermissionIndexingService, groupPermissionIndexingService, nodeSearchingService);
+        userPermissionIndexingService, groupPermissionIndexingService, nodeSearchingService,
+        groupPermissionSearchingService);
   }
 
   @Override
