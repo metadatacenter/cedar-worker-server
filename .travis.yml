@@ -1,6 +1,5 @@
 sudo: required
 dist: trusty
-
 language: java
 jdk:
 - oraclejdk8
@@ -8,17 +7,17 @@ branches:
   only:
   - develop
   - master
-cache:
-  directories:
-  - $HOME/.m2
 notifications:
   email:
     recipients:
     - cedar-core-developers@lists.stanford.edu
     on_success: never
     on_failure: always
-install: '[ ${TRAVIS_PULL_REQUEST} = ''false'' ] && mvn -DskipTests=true clean deploy --settings .m2/travis-settings.xml'
+install: '[ ${TRAVIS_PULL_REQUEST} = ''false'' ] && mvn -DskipTests=false clean deploy
+  --settings .m2/travis-settings.xml'
+script: '[ ${TRAVIS_PULL_REQUEST} = ''false'' ] && mvn -DskipTests=true clean --settings
+  .m2/travis-settings.xml'
 env:
   global:
-  - secure: VY75RBRihpTX2ShZ7X+oW5rt37FK2TB0dmIjrPy914dx4m30Bq+QSx5p9F65rfsWyta1KkBGC6af6/MUS0tELMqmZl2vgRVJANMCmcdafY9/3nOiY1w6kEDEjN0Nih2/PfPW82wq/asUKk7jiZT2qJjEvQT6ZAQMQCb20V4PBn1zrqxIw5WinYbrMX59gcW8H3paJhwkMDhLL2lAtAWNWLIKB934hIKrE2NcizPbLKsPvtIwWYnFJ9PsAU2UNQA5ZQnHh+7ZwnCdPM/xCkdWsnMkF0wrgSsrvOQwzaeOo1RPCwst04CHIrlpIPwb9XB/RfxOnmKB2MVBBhXJ4621ZEhxKNBA+09b6uVREBuYKjuwiSdH7eH5MtwSsLGeDe9OWnt3SLELnKAi/bVl80bM3LFl5m9wwY+MXBo5DJ5vlY911QCIqps+HwVOQhpTNbj8KFl/QAd8zQgcn5Ux1DjMUC38DCJP7hAGOf5R+K2jEoBXIxLeWY0urtiy8smaGGXjkqBttu6eJmQjnsePQJdr703I7K6bYcWiZOg2aBRXwCcJqCdMyKHAFK8JG86tLrPlZna1Vpl3kVp9T3BdvOs7vJ/P3kJkq3wWsBJJvyeCwNEY9UwjTz2DnUPIWMk0GT8eboO95kJ4beLR7TZSaWDKpVKjkjPGhnTe9bmZCayEPH4=
-  - secure: k03YX0wva4I0i1uaGon23j2icD7bjfq5U8prA6WQWvXQJXs4DOtojGIvavKvQd+lGnYaVubPAhvIrUYvFrAw3joxoLq5V7DGjY6T1GMmY/2SHBbebK6VuR4AojSLDPzZG2UmjBsow9LFZUjPeqjoBFO0lP0BYzaYc5MxDo6TI8Ye8daRUXMW78Nvy4Y1iJpu8HJKY8fskYedIpK7jnMAMqaEhPIaDF6MDLaO+6vTBg0j6Y68tNtqzCHcjSXl3UbWvH1V0eAWS3jLJ+ZQcUqpxr5m45sqBACjAHlCDc6Ug0s839s72JQpmgQF83Jjjn0PUiFUzmomRGJcnOMyDYW9EbVoCVNMWCeaZzVre7kvmiTvDi53vZgHozcGLTOZmiKRjqu2OdmXIM4Acv1f63JPkJi3tJMJctPTf1072e3pxDvI6NFpZAmxf+2ncljK8YdXkk/VXfALXQDz2TvzgVB8kwb5IkqlAK959IIYZ6tEaHLSZJAAphaMlkM/m6QhlHW9X8mwGRHknDIx2W1E3OxQl2/uqvu+xWSkWK/m0pKbyqy+zMxT67qx6QD+h5EUa8Z2g1eDl2Jz0ZuHTIp+KgDwEtunC0pV19a1FxqH5BcvHsS6P7oNpQKRVAm3IiPZv5WYThfDvp+KL5Pwu1ucJqexMlu9QiYwoXsVrM2een+NhCc=
+  - secure: cC8I3f+GRqxCGNNxrC2C2/7wWD0m0lIHZghgEr0s1G/+aTeLGxD0FEfLXb4kwc8p/9PshRSuIpSnDPQlu/Nbu38t8cfHvvz+mfgga+U7yOUe129mqFmWMiHBIgf+fPpJhXC0dPgmCYZK98vWY8W/+UPhuafzC34Kq1l3gqq9oEZyCxRi4LVVmRtOMJqPDsMlnvf2cD8umstBQAcLtuT+LZH1uPmqYHyT4wV+oT6tmXmVMQD58n8lzxHSakdBeq8Rn0s4N8EmlX7yLR9nIQCfItdjPqhG/w7rvvtixdv2t6zFt9NCAlEtEvH2nNq9afbNEhkivw5ReWYV2xNyudvgh1MHuBIQoCEZPNmVKdTCTaIqI29NTD+z2knhsLqJLZ+//gHYf37a4LamsPXt628I2Mb7CXqT2fbl9LUGF/EgYbEA18fHn1iCTOcXwQwYuNAx7usdcicUgIMWTxhKnYfMGR8CSHbvojfGY1FPoDdS+fF6zdYFgnB1OyzgPrijV4sl/JkJUyA+N2ojgJcr+NXeM1BlLGrVGiDpjZf9fLe5FWVNofoZ0tXLAdIdnnR7IHjCV7TDwuEskLe2XwI/Jk6ZwvXjintHK2gXOppHG/PHU5Ucj3qBXJAcy91RwjbwO1nthHbaV/J65nRBUzJWtURUHxk06ZBLar3oYjY81beAuPE=
+  - secure: mdTHO29R17nc3ik/REG6P1Ham3R43IzxIlG2UgxzzhSex3KAv3O+y/8PXUPmri4tBaxjBSEEJA/Os9G1yS8xPyseTkyg19Wi+kRuspHtZHQOk+TujXmmas7Dc8/VttvOhu8Z2hY6VEcOog6nosZ4kGCpeYa/r47ub3uGoGawmsAyCR6GqZWtF08yWlp/QAwQFjbG47ymab70/+CNYZBrFBmhN3QQxXmws59Q3ryePD8ux916kBDeh9ZOXwJPfJXUUcEpFZHcKcxLuC5Ja2n2rK4pnxWIfsfKzQcwLARzqA/mUzbjRRRLYczZoAdQ/IbjwOcSe91UtWpTpqhBUqOsrjmkkG8qq69hgU/9D87GJo/k4e/sGx5WN9Z3Tp+610A6UdUht9sR2jfTRP3SzpNxJmfpPWqsFE6M/E+49cdRozBZwRWSdNdMN5Pf1ex4WrZz7YPDti+E5gttiz4lVErno1AjK7xEYt4lIF1WMg8kSyigydxKKXkyayOxifuD2l6DQ32fjMzYuT+4Ya3sMfXnZhsz48PM7PJoLmH+5bZqbrweWktMfRxar19UxPF4/E6s27Kxi08RnRy4imm461FbqcS7bJU3Zie/SLV8Yx0Ti9Y7AOVPupZS2M82KLR46vMBQEIq6ZLriFcH0lWz3G2IoAegSTHblHGzrujTJ742JXg=
