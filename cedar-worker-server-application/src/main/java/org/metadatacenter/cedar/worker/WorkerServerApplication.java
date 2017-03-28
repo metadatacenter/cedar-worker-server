@@ -16,10 +16,6 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
 
   private static CacheService cacheService;
   private static SearchPermissionExecutorService searchPermissionExecutorService;
-  private static UserPermissionIndexingService userPermissionIndexingService;
-  private static GroupPermissionIndexingService groupPermissionIndexingService;
-  private static NodeSearchingService nodeSearchingService;
-  private static GroupPermissionSearchingService groupPermissionSearchingService;
 
   public static void main(String[] args) throws Exception {
     new WorkerServerApplication().run(args);
@@ -39,10 +35,11 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
 
     ElasticsearchServiceFactory esServiceFactory = ElasticsearchServiceFactory.getInstance(cedarConfig);
 
-    userPermissionIndexingService = esServiceFactory.userPermissionsIndexingService();
-    groupPermissionIndexingService = esServiceFactory.groupPermissionsIndexingService();
-    nodeSearchingService = esServiceFactory.nodeSearchingService();
-    groupPermissionSearchingService = esServiceFactory.groupPermissionSearchingService();
+    UserPermissionIndexingService userPermissionIndexingService = esServiceFactory.userPermissionsIndexingService();
+    GroupPermissionIndexingService groupPermissionIndexingService = esServiceFactory.groupPermissionsIndexingService();
+    NodeSearchingService nodeSearchingService = esServiceFactory.nodeSearchingService();
+    GroupPermissionSearchingService groupPermissionSearchingService = esServiceFactory
+        .groupPermissionSearchingService();
 
     searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils,
         userPermissionIndexingService, groupPermissionIndexingService, nodeSearchingService,
