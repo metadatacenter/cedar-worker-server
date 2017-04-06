@@ -6,6 +6,7 @@ import org.metadatacenter.bridge.CedarDataServices;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.health.WorkerServerHealthCheck;
 import org.metadatacenter.cedar.worker.resources.IndexResource;
+import org.metadatacenter.model.ServerName;
 import org.metadatacenter.server.cache.util.CacheService;
 import org.metadatacenter.server.search.elasticsearch.service.*;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
@@ -22,8 +23,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   }
 
   @Override
-  public String getName() {
-    return "cedar-worker-server";
+  protected ServerName getServerName() {
+    return ServerName.WORKER;
   }
 
   @Override
