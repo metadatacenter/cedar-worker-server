@@ -18,5 +18,14 @@ script: '[ ${TRAVIS_PULL_REQUEST} = ''false'' ] && mvn -DskipTests=true clean --
   .m2/travis-settings.xml'
 env:
   global:
+  - CEDAR_HOST=metadatacenter.orgx
+  - CEDAR_ADMIN_USER_API_KEY=1234
+  - CEDAR_NEO4J_TRANSACTION_URL=http://localhost
+  - CEDAR_NEO4J_AUTH_STRING='Basic base64'
+  - CEDAR_KEYCLOAK_CLIENT_ID=cedar-angular-app
+  - CEDAR_MONGO_USER_NAME=cedarUser
+  - CEDAR_MONGO_USER_PASSWORD=password
+  - CEDAR_LD_USER_BASE=https://metadatacenter.org/users/
+  - CEDAR_EVERYBODY_GROUP_NAME=Everybody
   - secure: cC8I3f+GRqxCGNNxrC2C2/7wWD0m0lIHZghgEr0s1G/+aTeLGxD0FEfLXb4kwc8p/9PshRSuIpSnDPQlu/Nbu38t8cfHvvz+mfgga+U7yOUe129mqFmWMiHBIgf+fPpJhXC0dPgmCYZK98vWY8W/+UPhuafzC34Kq1l3gqq9oEZyCxRi4LVVmRtOMJqPDsMlnvf2cD8umstBQAcLtuT+LZH1uPmqYHyT4wV+oT6tmXmVMQD58n8lzxHSakdBeq8Rn0s4N8EmlX7yLR9nIQCfItdjPqhG/w7rvvtixdv2t6zFt9NCAlEtEvH2nNq9afbNEhkivw5ReWYV2xNyudvgh1MHuBIQoCEZPNmVKdTCTaIqI29NTD+z2knhsLqJLZ+//gHYf37a4LamsPXt628I2Mb7CXqT2fbl9LUGF/EgYbEA18fHn1iCTOcXwQwYuNAx7usdcicUgIMWTxhKnYfMGR8CSHbvojfGY1FPoDdS+fF6zdYFgnB1OyzgPrijV4sl/JkJUyA+N2ojgJcr+NXeM1BlLGrVGiDpjZf9fLe5FWVNofoZ0tXLAdIdnnR7IHjCV7TDwuEskLe2XwI/Jk6ZwvXjintHK2gXOppHG/PHU5Ucj3qBXJAcy91RwjbwO1nthHbaV/J65nRBUzJWtURUHxk06ZBLar3oYjY81beAuPE=
   - secure: mdTHO29R17nc3ik/REG6P1Ham3R43IzxIlG2UgxzzhSex3KAv3O+y/8PXUPmri4tBaxjBSEEJA/Os9G1yS8xPyseTkyg19Wi+kRuspHtZHQOk+TujXmmas7Dc8/VttvOhu8Z2hY6VEcOog6nosZ4kGCpeYa/r47ub3uGoGawmsAyCR6GqZWtF08yWlp/QAwQFjbG47ymab70/+CNYZBrFBmhN3QQxXmws59Q3ryePD8ux916kBDeh9ZOXwJPfJXUUcEpFZHcKcxLuC5Ja2n2rK4pnxWIfsfKzQcwLARzqA/mUzbjRRRLYczZoAdQ/IbjwOcSe91UtWpTpqhBUqOsrjmkkG8qq69hgU/9D87GJo/k4e/sGx5WN9Z3Tp+610A6UdUht9sR2jfTRP3SzpNxJmfpPWqsFE6M/E+49cdRozBZwRWSdNdMN5Pf1ex4WrZz7YPDti+E5gttiz4lVErno1AjK7xEYt4lIF1WMg8kSyigydxKKXkyayOxifuD2l6DQ32fjMzYuT+4Ya3sMfXnZhsz48PM7PJoLmH+5bZqbrweWktMfRxar19UxPF4/E6s27Kxi08RnRy4imm461FbqcS7bJU3Zie/SLV8Yx0Ti9Y7AOVPupZS2M82KLR46vMBQEIq6ZLriFcH0lWz3G2IoAegSTHblHGzrujTJ742JXg=

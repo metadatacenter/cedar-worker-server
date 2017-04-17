@@ -75,6 +75,13 @@
       <groupId>org.metadatacenter</groupId>
       <artifactId>cedar-search-operations</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
   <build>

@@ -1,6 +1,5 @@
 package org.metadatacenter.cedar.worker;
 
-import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import org.metadatacenter.bridge.CedarDataServices;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
@@ -28,7 +27,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   }
 
   @Override
-  public void initializeApp(Bootstrap<WorkerServerConfiguration> bootstrap) {
+  public void initializeApp() {
     CedarDataServices.initializeFolderServices(cedarConfig);
     cacheService = new CacheService(cedarConfig.getCacheConfig().getPersistent());
 
