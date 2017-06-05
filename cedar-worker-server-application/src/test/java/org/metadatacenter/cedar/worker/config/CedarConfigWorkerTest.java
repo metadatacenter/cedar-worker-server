@@ -24,6 +24,8 @@ public class CedarConfigWorkerTest {
 
     env.put(CedarEnvironmentVariable.CEDAR_NEO4J_USER_NAME.getName(), "name");
     env.put(CedarEnvironmentVariable.CEDAR_NEO4J_USER_PASSWORD.getName(), "password");
+    env.put(CedarEnvironmentVariable.CEDAR_NEO4J_HOST.getName(), "127.0.0.1");
+    env.put(CedarEnvironmentVariable.CEDAR_NEO4J_REST_PORT.getName(), "7474");
 
     env.put(CedarEnvironmentVariable.CEDAR_KEYCLOAK_CLIENT_ID.getName(), "cedar-angular-app");
 
@@ -34,6 +36,9 @@ public class CedarConfigWorkerTest {
 
     env.put(CedarEnvironmentVariable.CEDAR_ELASTICSEARCH_HOST.getName(), "127.0.0.1");
     env.put(CedarEnvironmentVariable.CEDAR_ELASTICSEARCH_TRANSPORT_PORT.getName(), "9200");
+
+    env.put(CedarEnvironmentVariable.CEDAR_REDIS_PERSISTENT_HOST.getName(), "127.0.0.1");
+    env.put(CedarEnvironmentVariable.CEDAR_REDIS_PERSISTENT_PORT.getName(), "6379");
 
     env.put(CedarEnvironmentVariable.CEDAR_PORT_WORKER.getName(), "9011");
 
