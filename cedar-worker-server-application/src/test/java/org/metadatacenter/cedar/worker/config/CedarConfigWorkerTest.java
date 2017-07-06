@@ -43,7 +43,7 @@ public class CedarConfigWorkerTest {
     env.put(CedarEnvironmentVariable.CEDAR_WORKER_ADMIN_PORT.getName(), "9111");
     env.put(CedarEnvironmentVariable.CEDAR_WORKER_STOP_PORT.getName(), "9211");
 
-    env.put(CedarEnvironmentVariable.CEDAR_FOLDER_HTTP_PORT.getName(), "9008");
+    env.put(CedarEnvironmentVariable.CEDAR_WORKSPACE_HTTP_PORT.getName(), "9008");
     env.put(CedarEnvironmentVariable.CEDAR_TEMPLATE_HTTP_PORT.getName(), "9001");
     env.put(CedarEnvironmentVariable.CEDAR_USER_HTTP_PORT.getName(), "9005");
 
