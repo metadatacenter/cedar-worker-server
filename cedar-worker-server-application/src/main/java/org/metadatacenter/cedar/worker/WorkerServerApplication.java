@@ -1,5 +1,6 @@
 package org.metadatacenter.cedar.worker;
 
+import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import org.metadatacenter.bridge.CedarDataServices;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
@@ -24,6 +25,10 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   @Override
   protected ServerName getServerName() {
     return ServerName.WORKER;
+  }
+
+  @Override
+  protected void initializeWithBootsrap(Bootstrap<WorkerServerConfiguration> bootstrap) {
   }
 
   @Override
