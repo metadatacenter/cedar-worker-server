@@ -28,7 +28,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   }
 
   @Override
-  protected void initializeWithBootsrap(Bootstrap<WorkerServerConfiguration> bootstrap) {
+  protected void initializeWithBootstrap(Bootstrap<WorkerServerConfiguration> bootstrap) {
   }
 
   @Override
