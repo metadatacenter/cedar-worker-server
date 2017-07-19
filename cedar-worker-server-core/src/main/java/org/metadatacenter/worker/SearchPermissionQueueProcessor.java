@@ -5,6 +5,7 @@ import org.metadatacenter.config.CacheServerPersistent;
 import org.metadatacenter.server.cache.util.CacheService;
 import org.metadatacenter.server.search.SearchPermissionQueueEvent;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
+import org.metadatacenter.queue.QueueEvent;
 import org.metadatacenter.util.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +38,7 @@ public class SearchPermissionQueueProcessor implements Managed {
     log.info("SearchPermissionQueueProcessor.start()");
     jedis = cacheService.getJedis();
     List<String> messages = null;
-    String queueName = cacheConfig.getQueueName(CacheService.SEARCH_PERMISSION_QUEUE_ID);
+    String queueName = cacheConfig.getQueueName(QueueEvent.SEARCH_PERMISSION_QUEUE_ID);
     while (doProcessing) {
       log.info("Waiting for a message in the search permission queue");
       messages = jedis.blpop(0, queueName);

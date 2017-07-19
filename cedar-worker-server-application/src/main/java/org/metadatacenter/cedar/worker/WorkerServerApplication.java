@@ -12,12 +12,15 @@ import org.metadatacenter.server.cache.util.CacheService;
 import org.metadatacenter.server.search.elasticsearch.service.*;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.server.search.util.IndexUtils;
+import org.metadatacenter.worker.submission.NcbiAirrSubmissionExecutorService;
+import org.metadatacenter.worker.submission.NcbiAirrSubmissionQueueProcessor;
 import org.metadatacenter.worker.SearchPermissionQueueProcessor;
 
 public class WorkerServerApplication extends CedarMicroserviceApplication<WorkerServerConfiguration> {
 
   private static CacheService cacheService;
   private static SearchPermissionExecutorService searchPermissionExecutorService;
+  private static NcbiAirrSubmissionExecutorService ncbiAirrSubmissionExecutorService;
 
   public static void main(String[] args) throws Exception {
     new WorkerServerApplication().run(args);
@@ -50,6 +53,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils,
         userPermissionIndexingService, groupPermissionIndexingService, nodeSearchingService,
         groupPermissionSearchingService);
+    ncbiAirrSubmissionExecutorService = new NcbiAirrSubmissionExecutorService(cedarConfig);
   }
 
   @Override
@@ -64,6 +68,11 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     SearchPermissionQueueProcessor searchPermissionProcessor = new SearchPermissionQueueProcessor(cacheService,
         cedarConfig.getCacheConfig().getPersistent(),
         searchPermissionExecutorService);
+    NcbiAirrSubmissionQueueProcessor ncbiAirrSubmissionProcessor = new NcbiAirrSubmissionQueueProcessor(cacheService,
+        cedarConfig.getCacheConfig().getPersistent(),
+        ncbiAirrSubmissionExecutorService);
+
     environment.lifecycle().manage(searchPermissionProcessor);
+    environment.lifecycle().manage(ncbiAirrSubmissionProcessor);
   }
 }
