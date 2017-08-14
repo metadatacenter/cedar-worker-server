@@ -6,6 +6,7 @@ import org.metadatacenter.bridge.CedarDataServices;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.health.WorkerServerHealthCheck;
 import org.metadatacenter.cedar.worker.resources.IndexResource;
+import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.model.ServerName;
 import org.metadatacenter.server.cache.util.CacheService;
 import org.metadatacenter.server.search.elasticsearch.service.*;
@@ -28,7 +29,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   }
 
   @Override
-  protected void initializeWithBootstrap(Bootstrap<WorkerServerConfiguration> bootstrap) {
+  protected void initializeWithBootstrap(Bootstrap<WorkerServerConfiguration> bootstrap, CedarConfig cedarConfig) {
   }
 
   @Override
