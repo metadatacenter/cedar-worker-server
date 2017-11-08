@@ -21,7 +21,6 @@
     <connection>scm:git:git@github.com:metadatacenter/cedar-worker-server.git</connection>
     <developerConnection>scm:git:git@github.com:metadatacenter/cedar-worker-server.git</developerConnection>
     <url>https://github.com/metadatacenter/cedar-worker-server</url>
-    <tag>HEAD</tag>
   </scm>
 
   <modules>
