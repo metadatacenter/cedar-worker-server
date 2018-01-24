@@ -34,7 +34,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
 
   @Override
   public void initializeApp() {
-    CedarDataServices.initializeFolderServices(cedarConfig);
+    CedarDataServices.initializeWorkspaceServices(cedarConfig);
     cacheService = new CacheService(cedarConfig.getCacheConfig().getPersistent());
 
     IndexUtils indexUtils = new IndexUtils(cedarConfig);
