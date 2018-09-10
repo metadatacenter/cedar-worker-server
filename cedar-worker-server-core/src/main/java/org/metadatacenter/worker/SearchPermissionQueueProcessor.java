@@ -56,7 +56,6 @@ public class SearchPermissionQueueProcessor implements Managed {
           log.info("  Event id: " + event.getId());
           log.info("      type: " + event.getEventType());
           log.info(" createdAt: " + event.getCreatedAt());
-          log.info("  parentId: " + (event.getParentId() == null ? "null" : event.getParentId().getId()));
           searchPermissionExecutorService.handleEvent(event);
         } catch (Exception e) {
           log.error("There was an error while handling the message", e);
@@ -71,9 +70,7 @@ public class SearchPermissionQueueProcessor implements Managed {
   @Override
   public void start() throws Exception {
     ExecutorService executor = Executors.newSingleThreadExecutor();
-    executor.submit(() -> {
-      this.digestMessages();
-    });
+    executor.submit(this::digestMessages);
   }
 
   @Override

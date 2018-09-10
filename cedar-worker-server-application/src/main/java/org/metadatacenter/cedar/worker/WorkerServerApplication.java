@@ -9,7 +9,9 @@ import org.metadatacenter.cedar.worker.resources.IndexResource;
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.model.ServerName;
 import org.metadatacenter.server.cache.util.CacheService;
-import org.metadatacenter.server.search.elasticsearch.service.*;
+import org.metadatacenter.server.search.elasticsearch.service.ElasticsearchServiceFactory;
+import org.metadatacenter.server.search.elasticsearch.service.NodeIndexingService;
+import org.metadatacenter.server.search.elasticsearch.service.NodeSearchingService;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.server.search.util.IndexUtils;
 import org.metadatacenter.worker.SearchPermissionQueueProcessor;
@@ -41,15 +43,11 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
 
     ElasticsearchServiceFactory esServiceFactory = ElasticsearchServiceFactory.getInstance(cedarConfig);
 
-    UserPermissionIndexingService userPermissionIndexingService = esServiceFactory.userPermissionsIndexingService();
-    GroupPermissionIndexingService groupPermissionIndexingService = esServiceFactory.groupPermissionsIndexingService();
     NodeSearchingService nodeSearchingService = esServiceFactory.nodeSearchingService();
-    GroupPermissionSearchingService groupPermissionSearchingService = esServiceFactory
-        .groupPermissionSearchingService();
+    NodeIndexingService nodeIndexingService = esServiceFactory.nodeIndexingService();
 
     searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils,
-        userPermissionIndexingService, groupPermissionIndexingService, nodeSearchingService,
-        groupPermissionSearchingService);
+        nodeSearchingService, nodeIndexingService);
   }
 
   @Override
