@@ -33,7 +33,6 @@ public class AppLoggerQueueProcessor implements Managed {
     appLoggerQueueService.initializeBlockingQueue();
     List<String> logMessages;
     while (doProcessing) {
-      log.info("Waiting for a message in the app logger queue.");
       logMessages = appLoggerQueueService.waitForMessages();
       AppLogMessage appLog = null;
       if (logMessages != null && !logMessages.isEmpty()) {
@@ -51,7 +50,7 @@ public class AppLoggerQueueProcessor implements Managed {
           log.error("There was an error while handling the message", e);
         }
       } else {
-        log.error("Unable to handle message, it is null.");
+        log.warn("Unable to handle message, it is null.");
       }
     }
     log.info("SearchPermissionQueueProcessor finished gracefully");
