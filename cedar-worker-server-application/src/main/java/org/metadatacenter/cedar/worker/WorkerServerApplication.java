@@ -21,8 +21,11 @@ import org.metadatacenter.server.search.elasticsearch.service.NodeIndexingServic
 import org.metadatacenter.server.search.elasticsearch.service.NodeSearchingService;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.server.search.util.IndexUtils;
+import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecutorService;
+import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
 import org.metadatacenter.worker.AppLoggerQueueProcessor;
 import org.metadatacenter.worker.PermissionQueueProcessor;
+import org.metadatacenter.worker.ValuerecommenderReindexQueueProcessor;
 
 public class WorkerServerApplication extends CedarMicroserviceApplication<WorkerServerConfiguration> {
 
@@ -32,6 +35,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   private static PermissionQueueService permissionQueueService;
   private static SearchPermissionExecutorService searchPermissionExecutorService;
   private static AppLoggerExecutorService appLoggerExecutorService;
+  private static ValuerecommenderReindexQueueService valuerecommenderQueueService;
+  private static ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
 
   public static void main(String[] args) throws Exception {
     new WorkerServerApplication().run(args);
@@ -76,6 +81,10 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         .create(AppLoggerExecutorService.class,
             new Class[]{ApplicationRequestLogDAO.class, ApplicationCypherLogDAO.class},
             new Object[]{requestLogDAO, cypherLogDAO});
+
+    valuerecommenderQueueService =
+        new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
+    valuerecommenderExecutorService = new ValuerecommenderReindexExecutorService();
   }
 
   @Override
@@ -94,5 +103,10 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     AppLoggerQueueProcessor appLoggerQueueProcessor = new AppLoggerQueueProcessor(appLoggerQueueService,
         appLoggerExecutorService);
     environment.lifecycle().manage(appLoggerQueueProcessor);
+
+    ValuerecommenderReindexQueueProcessor valuerecommenderReindexQueueProcessor =
+        new ValuerecommenderReindexQueueProcessor(valuerecommenderQueueService, valuerecommenderExecutorService);
+    environment.lifecycle().manage(valuerecommenderReindexQueueProcessor);
+
   }
 }

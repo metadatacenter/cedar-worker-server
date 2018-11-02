@@ -57,6 +57,11 @@
     </dependency>
 
     <dependency>
+      <groupId>org.metadatacenter</groupId>
+      <artifactId>cedar-valuerecommender-operations</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <scope>test</scope>
