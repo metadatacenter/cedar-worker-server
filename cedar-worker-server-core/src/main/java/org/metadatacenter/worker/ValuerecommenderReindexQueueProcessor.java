@@ -1,9 +1,11 @@
 package org.metadatacenter.worker;
 
-import io.dropwizard.lifecycle.Managed;
+import org.knowm.sundial.exceptions.JobInterruptException;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecutorService;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
 import org.metadatacenter.server.valuerecommender.model.ValuerecommenderReindexMessage;
+import org.metadatacenter.server.valuerecommender.model.ValuerecommenderReindexMessageActionType;
+import org.metadatacenter.server.valuerecommender.model.ValuerecommenderReindexMessageResourceType;
 import org.metadatacenter.util.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,41 +13,44 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-public class ValuerecommenderReindexQueueProcessor implements Managed {
+public class ValuerecommenderReindexQueueProcessor extends org.knowm.sundial.Job {
 
   private static final Logger log = LoggerFactory.getLogger(ValuerecommenderReindexQueueProcessor.class);
 
-  private final ValuerecommenderReindexQueueService valuerecommenderQueueService;
-  private final ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
-  private final long sleepMillis = 60 * 1000;
-  private boolean doProcessing;
+  private static ValuerecommenderReindexQueueService valuerecommenderQueueService;
+  private static ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
 
-  public ValuerecommenderReindexQueueProcessor(ValuerecommenderReindexQueueService valuerecommenderQueueService,
-                                               ValuerecommenderReindexExecutorService valuerecommenderExecutorService) {
-    this.valuerecommenderQueueService = valuerecommenderQueueService;
-    this.valuerecommenderExecutorService = valuerecommenderExecutorService;
-    doProcessing = true;
+  public ValuerecommenderReindexQueueProcessor() {
   }
 
-  private void digestMessages() {
-    log.info("ValuerecommenderReindexQueueProcessor.start()");
-    valuerecommenderQueueService.initializeNonBlockingQueue();
-    List<String> logMessages;
-    while (doProcessing) {
-      logMessages = valuerecommenderQueueService.getAllMessages();
+  public static void init(ValuerecommenderReindexQueueService valuerecommenderQueueService,
+                          ValuerecommenderReindexExecutorService valuerecommenderExecutorService) {
+    ValuerecommenderReindexQueueProcessor.valuerecommenderQueueService = valuerecommenderQueueService;
+    ValuerecommenderReindexQueueProcessor.valuerecommenderExecutorService = valuerecommenderExecutorService;
+  }
+
+  @Override
+  public void doRun() throws JobInterruptException {
+    log.info("doRun...");
+    List<String> logMessages = valuerecommenderQueueService.getAllMessages();
+    log.info("Message count: " + logMessages.size());
+    if (!logMessages.isEmpty()) {
       List<ValuerecommenderReindexMessage> messages = new ArrayList<>();
-      if (logMessages != null && !logMessages.isEmpty()) {
-        for (String msg : logMessages) {
-          ValuerecommenderReindexMessage message = null;
-          try {
-            message = JsonMapper.MAPPER.readValue(msg, ValuerecommenderReindexMessage.class);
-          } catch (IOException e) {
-            log.error("There was an error while deserializing message", e);
+      for (String msg : logMessages) {
+        ValuerecommenderReindexMessage message = null;
+        try {
+          message = JsonMapper.MAPPER.readValue(msg, ValuerecommenderReindexMessage.class);
+        } catch (IOException e) {
+          log.error("There was an error while deserializing message", e);
+        }
+        if (message != null) {
+          boolean doAdd = true;
+          if (message.getResourceType() == ValuerecommenderReindexMessageResourceType.TEMPLATE &&
+              message.getActionType() != ValuerecommenderReindexMessageActionType.UPDATED) {
+            doAdd = false;
           }
-          if (message != null) {
+          if (doAdd) {
             messages.add(message);
           }
         }
@@ -57,30 +62,9 @@ public class ValuerecommenderReindexQueueProcessor implements Managed {
           log.error("There was an error while handling the messages", e);
         }
       } else {
-        log.warn("Unable to handle messages, it is an empty list.");
-      }
-      try {
-        Thread.sleep(sleepMillis);
-      } catch (InterruptedException e) {
-        log.error("Error while sleeping", e);
+        log.warn("After analyzing messages, none remained to be processed.");
       }
     }
-    log.info("ValuerecommenderReindexQueueProcessor finished gracefully");
   }
 
-  @Override
-  public void start() throws Exception {
-    ExecutorService executor = Executors.newSingleThreadExecutor();
-    executor.submit(this::digestMessages);
-  }
-
-  @Override
-  public void stop() throws Exception {
-    log.info("ValuerecommenderReindexQueueProcessor.stop()");
-    log.info("Set looping flag to false");
-    doProcessing = false;
-    log.info("Close Jedis");
-    valuerecommenderQueueService.enqueueEvent(null);
-    valuerecommenderQueueService.close();
-  }
 }
