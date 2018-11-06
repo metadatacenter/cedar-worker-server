@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='utf-8'?>
+<job-scheduling-data>
+
+  <schedule>
+
+    <job>
+      <name>ValuerecommenderReindexQueueProcessor</name>
+      <job-class>org.metadatacenter.worker.ValuerecommenderReindexQueueProcessor</job-class>
+      <concurrency-allowed>false</concurrency-allowed>
+    </job>
+
+    <trigger>
+      <cron>
+        <name>ValuerecommenderReindexQueueProcessor-Trigger</name>
+        <job-name>ValuerecommenderReindexQueueProcessor</job-name>
+        <cron-expression>*/5 * * * * ?</cron-expression>
+      </cron>
+    </trigger>
+
+  </schedule>
+
+</job-scheduling-data>
+
