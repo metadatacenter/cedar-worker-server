@@ -13,7 +13,7 @@
       <cron>
         <name>ValuerecommenderReindexQueueProcessor-Trigger</name>
         <job-name>ValuerecommenderReindexQueueProcessor</job-name>
-        <cron-expression>*/5 * * * * ?</cron-expression>
+        <cron-expression>*/30 * * * * ?</cron-expression>
       </cron>
     </trigger>
 
