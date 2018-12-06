@@ -32,9 +32,11 @@ public class ValuerecommenderReindexQueueProcessor extends org.knowm.sundial.Job
 
   @Override
   public void doRun() throws JobInterruptException {
-    log.info("doRun...");
+    //log.info("doRun...");
     List<String> logMessages = valuerecommenderQueueService.getAllMessages();
-    log.info("Message count: " + logMessages.size());
+    if (logMessages.size() > 0) {
+      log.info("Message count: " + logMessages.size());
+    }
     if (!logMessages.isEmpty()) {
       List<ValuerecommenderReindexMessage> messages = new ArrayList<>();
       for (String msg : logMessages) {
