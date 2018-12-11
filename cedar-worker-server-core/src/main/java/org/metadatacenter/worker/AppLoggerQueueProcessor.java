@@ -31,6 +31,7 @@ public class AppLoggerQueueProcessor implements Managed {
   private void digestMessages() {
     log.info("AppLoggerQueueProcessor.start()");
     appLoggerQueueService.initializeBlockingQueue();
+    log.info("Message count in queue:" + appLoggerQueueService.messageCount());
     List<String> logMessages;
     while (doProcessing) {
       logMessages = appLoggerQueueService.waitForMessages();
