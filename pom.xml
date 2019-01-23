@@ -5,28 +5,38 @@
   <parent>
     <groupId>org.metadatacenter</groupId>
     <artifactId>cedar-parent</artifactId>
-    <version>2.2.3</version>
+    <version>2.2.5</version>
   </parent>
 
   <groupId>org.metadatacenter</groupId>
   <artifactId>cedar-worker-server</artifactId>
-  <version>2.2.3</version>
+  <version>2.2.5</version>
   <packaging>pom</packaging>
 
   <name>CEDAR Worker Server</name>
-  <description>CEDAR server to perform background operations
-  </description>
+  <description>CEDAR server to perform background operations</description>
 
   <scm>
     <connection>scm:git:git@github.com:metadatacenter/cedar-worker-server.git</connection>
     <developerConnection>scm:git:git@github.com:metadatacenter/cedar-worker-server.git</developerConnection>
     <url>https://github.com/metadatacenter/cedar-worker-server</url>
-    <tag>release-2.2.3</tag>
+    <tag>release-2.2.5</tag>
   </scm>
 
   <modules>
     <module>cedar-worker-server-core</module>
     <module>cedar-worker-server-application</module>
   </modules>
+
+  <build>
+    <plugins>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+      </plugin>
+
+    </plugins>
+  </build>
 
 </project>
