@@ -79,11 +79,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     permissionQueueService = new PermissionQueueService(cedarConfig.getCacheConfig().getPersistent());
 
     IndexUtils indexUtils = new IndexUtils(cedarConfig);
-
-    ElasticsearchServiceFactory esServiceFactory = ElasticsearchServiceFactory.getInstance(cedarConfig);
-
-    NodeSearchingService nodeSearchingService = esServiceFactory.nodeSearchingService();
-    NodeIndexingService nodeIndexingService = esServiceFactory.nodeIndexingService();
+    NodeSearchingService nodeSearchingService = indexUtils.getNodeSearchingService();
+    NodeIndexingService nodeIndexingService = indexUtils.getNodeIndexingService();
 
     searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils,
         nodeSearchingService, nodeIndexingService);
