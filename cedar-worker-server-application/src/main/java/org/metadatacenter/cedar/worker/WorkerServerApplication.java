@@ -18,7 +18,6 @@ import org.metadatacenter.server.logging.dao.ApplicationRequestLogDAO;
 import org.metadatacenter.server.logging.dbmodel.ApplicationCypherLog;
 import org.metadatacenter.server.logging.dbmodel.ApplicationRequestLog;
 import org.metadatacenter.server.queue.util.PermissionQueueService;
-import org.metadatacenter.server.search.elasticsearch.service.ElasticsearchServiceFactory;
 import org.metadatacenter.server.search.elasticsearch.service.NodeIndexingService;
 import org.metadatacenter.server.search.elasticsearch.service.NodeSearchingService;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
@@ -75,7 +74,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     requestLogDAO = new ApplicationRequestLogDAO(hibernate.getSessionFactory());
     cypherLogDAO = new ApplicationCypherLogDAO(hibernate.getSessionFactory());
 
-    CedarDataServices.initializeWorkspaceServices(cedarConfig);
+    CedarDataServices.initializeNeo4jServices(cedarConfig);
     permissionQueueService = new PermissionQueueService(cedarConfig.getCacheConfig().getPersistent());
 
     IndexUtils indexUtils = new IndexUtils(cedarConfig);
