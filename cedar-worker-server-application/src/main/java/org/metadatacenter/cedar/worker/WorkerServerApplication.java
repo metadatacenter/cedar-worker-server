@@ -74,7 +74,6 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     requestLogDAO = new ApplicationRequestLogDAO(hibernate.getSessionFactory());
     cypherLogDAO = new ApplicationCypherLogDAO(hibernate.getSessionFactory());
 
-    CedarDataServices.initializeNeo4jServices(cedarConfig);
     permissionQueueService = new PermissionQueueService(cedarConfig.getCacheConfig().getPersistent());
 
     IndexUtils indexUtils = new IndexUtils(cedarConfig);
