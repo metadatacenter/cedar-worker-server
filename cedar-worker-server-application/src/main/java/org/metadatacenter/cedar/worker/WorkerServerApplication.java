@@ -6,7 +6,6 @@ import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 import org.knowm.dropwizard.sundial.SundialBundle;
 import org.knowm.dropwizard.sundial.SundialConfiguration;
-import org.metadatacenter.bridge.CedarDataServices;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.health.WorkerServerHealthCheck;
 import org.metadatacenter.cedar.worker.resources.IndexResource;
@@ -80,18 +79,15 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     NodeSearchingService nodeSearchingService = indexUtils.getNodeSearchingService();
     NodeIndexingService nodeIndexingService = indexUtils.getNodeIndexingService();
 
-    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils,
-        nodeSearchingService, nodeIndexingService);
+    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils, nodeSearchingService, nodeIndexingService);
 
     appLoggerExecutorService = new UnitOfWorkAwareProxyFactory(hibernate)
         .create(AppLoggerExecutorService.class,
             new Class[]{ApplicationRequestLogDAO.class, ApplicationCypherLogDAO.class},
             new Object[]{requestLogDAO, cypherLogDAO});
 
-    valuerecommenderQueueService =
-        new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
-    valuerecommenderExecutorService =
-        new ValuerecommenderReindexExecutorService(cedarConfig, valuerecommenderQueueService);
+    valuerecommenderQueueService = new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
+    valuerecommenderExecutorService = new ValuerecommenderReindexExecutorService(cedarConfig, valuerecommenderQueueService);
     valuerecommenderExecutorService.init(userService);
   }
 
@@ -104,12 +100,10 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     final WorkerServerHealthCheck healthCheck = new WorkerServerHealthCheck();
     environment.healthChecks().register("message", healthCheck);
 
-    PermissionQueueProcessor searchPermissionProcessor = new PermissionQueueProcessor(permissionQueueService,
-        searchPermissionExecutorService);
+    PermissionQueueProcessor searchPermissionProcessor = new PermissionQueueProcessor(permissionQueueService, searchPermissionExecutorService);
     environment.lifecycle().manage(searchPermissionProcessor);
 
-    AppLoggerQueueProcessor appLoggerQueueProcessor = new AppLoggerQueueProcessor(appLoggerQueueService,
-        appLoggerExecutorService);
+    AppLoggerQueueProcessor appLoggerQueueProcessor = new AppLoggerQueueProcessor(appLoggerQueueService, appLoggerExecutorService);
     environment.lifecycle().manage(appLoggerQueueProcessor);
 
     ValuerecommenderReindexQueueProcessorHelper valuerecommenderReindexQueueProcessorHelper =
