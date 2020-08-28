@@ -1,6 +1,6 @@
 # cedar-worker-server
 
-[![Build Status](https://travis-ci.org/metadatacenter/cedar-worker-server.svg?branch=master)](https://travis-ci.org/metadatacenter/cedar-worker-server)
+[![Build Status](https://travis-ci.com/metadatacenter/cedar-worker-server.svg?branch=master)](https://travis-ci.com/metadatacenter/cedar-worker-server)
 
 CEDAR server to perform background operations
 
