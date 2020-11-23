@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.metadatacenter</groupId>
     <artifactId>cedar-parent</artifactId>
-    <version>2.5.30</version>
+    <version>2.5.32</version>
   </parent>
 
   <groupId>org.metadatacenter</groupId>
   <artifactId>cedar-worker-server</artifactId>
-  <version>2.5.30</version>
+  <version>2.5.32</version>
   <packaging>pom</packaging>
 
   <name>CEDAR Worker Server</name>
@@ -20,7 +20,7 @@
     <connection>scm:git:https://github.com/metadatacenter/cedar-worker-server.git</connection>
     <developerConnection>scm:git:https://github.com/metadatacenter/cedar-worker-server.git</developerConnection>
     <url>https://github.com/metadatacenter/cedar-worker-server</url>
-    <tag>release-2.5.30</tag>
+    <tag>release-2.5.32</tag>
   </scm>
 
   <modules>
