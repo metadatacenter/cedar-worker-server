@@ -10,7 +10,6 @@
 
   <groupId>org.metadatacenter</groupId>
   <artifactId>cedar-worker-server</artifactId>
-  <version>2.5.36-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>CEDAR Worker Server</name>
