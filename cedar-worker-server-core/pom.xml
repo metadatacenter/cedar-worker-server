@@ -18,7 +18,7 @@
 
     <dependency>
       <groupId>org.metadatacenter</groupId>
-      <artifactId>cedar-server-globals</artifactId>
+      <artifactId>cedar-server-globals-library</artifactId>
     </dependency>
 
     <dependency>
@@ -28,17 +28,17 @@
 
     <dependency>
       <groupId>org.metadatacenter</groupId>
-      <artifactId>cedar-queue-operations</artifactId>
+      <artifactId>cedar-queue-operations-library</artifactId>
     </dependency>
 
     <dependency>
       <groupId>org.metadatacenter</groupId>
-      <artifactId>cedar-search-operations</artifactId>
+      <artifactId>cedar-search-operations-library</artifactId>
     </dependency>
 
     <dependency>
       <groupId>org.metadatacenter</groupId>
-      <artifactId>cedar-valuerecommender-operations</artifactId>
+      <artifactId>cedar-valuerecommender-operations-library</artifactId>
     </dependency>
 
     <dependency>
