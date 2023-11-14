@@ -8,6 +8,7 @@ import org.knowm.dropwizard.sundial.SundialBundle;
 import org.knowm.dropwizard.sundial.SundialConfiguration;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.health.WorkerServerHealthCheck;
+import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
 import org.metadatacenter.cedar.worker.resources.IndexResource;
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.model.ServerName;
@@ -89,6 +90,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     valuerecommenderQueueService = new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
     valuerecommenderExecutorService = new ValuerecommenderReindexExecutorService(cedarConfig, valuerecommenderQueueService);
     valuerecommenderExecutorService.init(userService);
+
+    CommandInclusionSubgraphResource.injectUserService(userService);
   }
 
   @Override
@@ -99,6 +102,9 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
 
     final WorkerServerHealthCheck healthCheck = new WorkerServerHealthCheck();
     environment.healthChecks().register("message", healthCheck);
+
+    final CommandInclusionSubgraphResource commandInclusionsubgraph = new CommandInclusionSubgraphResource(cedarConfig);
+    environment.jersey().register(commandInclusionsubgraph);
 
     PermissionQueueProcessor searchPermissionProcessor = new PermissionQueueProcessor(permissionQueueService, searchPermissionExecutorService);
     environment.lifecycle().manage(searchPermissionProcessor);

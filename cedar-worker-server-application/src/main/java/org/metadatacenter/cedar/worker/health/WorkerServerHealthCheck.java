@@ -8,7 +8,7 @@ public class WorkerServerHealthCheck extends HealthCheck {
   }
 
   @Override
-  protected Result check() throws Exception {
+  protected Result check() {
     if (2 * 2 == 5) {
       return Result.unhealthy("Unhealthy, because 2 * 2 == 5");
     }
