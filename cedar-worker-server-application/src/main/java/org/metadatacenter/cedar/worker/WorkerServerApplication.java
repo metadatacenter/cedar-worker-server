@@ -17,17 +17,16 @@ import org.metadatacenter.server.logging.dao.ApplicationCypherLogDAO;
 import org.metadatacenter.server.logging.dao.ApplicationRequestLogDAO;
 import org.metadatacenter.server.logging.dbmodel.ApplicationCypherLog;
 import org.metadatacenter.server.logging.dbmodel.ApplicationRequestLog;
+import org.metadatacenter.server.queue.util.CloneInstancesQueueService;
 import org.metadatacenter.server.queue.util.PermissionQueueService;
+import org.metadatacenter.server.resource.CloneInstancesExecutorService;
 import org.metadatacenter.server.search.elasticsearch.service.NodeIndexingService;
 import org.metadatacenter.server.search.elasticsearch.service.NodeSearchingService;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.server.search.util.IndexUtils;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecutorService;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
-import org.metadatacenter.worker.AppLoggerQueueProcessor;
-import org.metadatacenter.worker.PermissionQueueProcessor;
-import org.metadatacenter.worker.ValuerecommenderReindexQueueProcessor;
-import org.metadatacenter.worker.ValuerecommenderReindexQueueProcessorHelper;
+import org.metadatacenter.worker.*;
 
 public class WorkerServerApplication extends CedarMicroserviceApplication<WorkerServerConfiguration> {
 
@@ -36,6 +35,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   private ApplicationCypherLogDAO cypherLogDAO;
   private static PermissionQueueService permissionQueueService;
   private static SearchPermissionExecutorService searchPermissionExecutorService;
+  private static CloneInstancesQueueService cloneInstancesQueueService;
+  private static CloneInstancesExecutorService cloneInstancesExecutorService;
   private static AppLoggerExecutorService appLoggerExecutorService;
   private static ValuerecommenderReindexQueueService valuerecommenderQueueService;
   private static ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
@@ -79,16 +80,25 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     IndexUtils indexUtils = new IndexUtils(cedarConfig);
     NodeSearchingService nodeSearchingService = indexUtils.getNodeSearchingService();
     NodeIndexingService nodeIndexingService = indexUtils.getNodeIndexingService();
+    ValuerecommenderReindexQueueService valuerecommenderReindexQueueService =
+        new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
 
-    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils, nodeSearchingService, nodeIndexingService);
+    searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils,
+        nodeSearchingService, nodeIndexingService);
+
+    CloneInstancesExecutorService.injectServices(nodeIndexingService, valuerecommenderReindexQueueService);
+    cloneInstancesQueueService = new CloneInstancesQueueService(cedarConfig.getCacheConfig().getPersistent());
+    cloneInstancesExecutorService = new CloneInstancesExecutorService(cedarConfig);
 
     appLoggerExecutorService = new UnitOfWorkAwareProxyFactory(hibernate)
         .create(AppLoggerExecutorService.class,
             new Class[]{ApplicationRequestLogDAO.class, ApplicationCypherLogDAO.class},
             new Object[]{requestLogDAO, cypherLogDAO});
 
-    valuerecommenderQueueService = new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
-    valuerecommenderExecutorService = new ValuerecommenderReindexExecutorService(cedarConfig, valuerecommenderQueueService);
+    valuerecommenderQueueService =
+        new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
+    valuerecommenderExecutorService = new ValuerecommenderReindexExecutorService(cedarConfig,
+        valuerecommenderQueueService);
     valuerecommenderExecutorService.init(userService);
 
     CommandInclusionSubgraphResource.injectUserService(userService);
@@ -106,10 +116,16 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     final CommandInclusionSubgraphResource commandInclusionsubgraph = new CommandInclusionSubgraphResource(cedarConfig);
     environment.jersey().register(commandInclusionsubgraph);
 
-    PermissionQueueProcessor searchPermissionProcessor = new PermissionQueueProcessor(permissionQueueService, searchPermissionExecutorService);
+    PermissionQueueProcessor searchPermissionProcessor = new PermissionQueueProcessor(permissionQueueService,
+        searchPermissionExecutorService);
     environment.lifecycle().manage(searchPermissionProcessor);
 
-    AppLoggerQueueProcessor appLoggerQueueProcessor = new AppLoggerQueueProcessor(appLoggerQueueService, appLoggerExecutorService);
+    CloneInstancesQueueProcessor cloneInstancesQueueProcessor =
+        new CloneInstancesQueueProcessor(cloneInstancesQueueService, cloneInstancesExecutorService);
+    environment.lifecycle().manage(cloneInstancesQueueProcessor);
+
+    AppLoggerQueueProcessor appLoggerQueueProcessor = new AppLoggerQueueProcessor(appLoggerQueueService,
+        appLoggerExecutorService);
     environment.lifecycle().manage(appLoggerQueueProcessor);
 
     ValuerecommenderReindexQueueProcessorHelper valuerecommenderReindexQueueProcessorHelper =
