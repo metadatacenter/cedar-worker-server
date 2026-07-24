@@ -12,8 +12,8 @@ public class ValuerecommenderReindexQueueProcessorHelper implements Managed {
   private final ValuerecommenderReindexQueueService valuerecommenderQueueService;
 
   public ValuerecommenderReindexQueueProcessorHelper(ValuerecommenderReindexQueueService valuerecommenderQueueService) {
+    // The queue service borrows a connection per poll, so nothing touches the queue (Redis) here
     this.valuerecommenderQueueService = valuerecommenderQueueService;
-    this.valuerecommenderQueueService.initializeNonBlockingQueue();
   }
 
   @Override

@@ -27,10 +27,10 @@ public class WorkerServerApplicationSmokeTest {
   static {
     // Must run before the application rule: startup itself needs the graph and the admin user.
     // The application log store comes from an in-process MariaDB; the MySQL redirection must
-    // precede the Neo4j seeding, which builds the CedarConfig singleton. Redis stays real: the
-    // valuerecommender queue helper acquires and holds a connection during runApp, so it is the
-    // worker's one remaining live dependency.
-    EmbeddedCedarMySql.startAndRedirectEnvironment("CEDAR_LOG_MYSQL", Map.of());
+    // precede the Neo4j seeding, which builds the CedarConfig singleton. Redis goes to a dead
+    // port: queue writes are best-effort, the consumers take their first contact on background
+    // threads, and the polling services borrow a connection per poll.
+    EmbeddedCedarMySql.startAndRedirectEnvironment("CEDAR_LOG_MYSQL", Map.of("CEDAR_REDIS_PERSISTENT_PORT", "1"));
     EmbeddedCedarNeo4j.startRedirectAndSeed(SystemComponent.SERVER_WORKER);
   }
 
