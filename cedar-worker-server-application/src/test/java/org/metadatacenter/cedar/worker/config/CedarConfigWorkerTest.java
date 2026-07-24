@@ -58,6 +58,17 @@ public class CedarConfigWorkerTest {
     env.put(CedarEnvironmentVariable.CEDAR_ARTIFACT_HTTP_PORT.getName(), "9001");
     env.put(CedarEnvironmentVariable.CEDAR_USER_HTTP_PORT.getName(), "9005");
 
+    env.put(CedarEnvironmentVariable.CEDAR_OPENSEARCH_REST_PORT.getName(), "9200");
+    env.put(CedarEnvironmentVariable.CEDAR_MESSAGING_MYSQL_HOST.getName(), "127.0.0.1");
+    env.put(CedarEnvironmentVariable.CEDAR_MESSAGING_MYSQL_PORT.getName(), "3306");
+    env.put(CedarEnvironmentVariable.CEDAR_MESSAGING_MYSQL_DB.getName(), "cedar_messaging");
+    env.put(CedarEnvironmentVariable.CEDAR_MESSAGING_MYSQL_USER.getName(), "cedarMySQLMessagingUser");
+    env.put(CedarEnvironmentVariable.CEDAR_MESSAGING_MYSQL_PASSWORD.getName(), "password");
+    env.put(CedarEnvironmentVariable.CEDAR_TRUSTED_FOLDERS.getName(),
+        "{\\\"caDSR\\\":[\\\"https://repo.metadatacenter.orgx/folders/c3a7b03c-87bb-49c4-b311-2eb1bd398c4e\\\"]}");
+    env.put(CedarEnvironmentVariable.CEDAR_ARTIFACT_SERVER_HOST.getName(), "127.0.0.1");
+    env.put(CedarEnvironmentVariable.CEDAR_VALUERECOMMENDER_SERVER_HOST.getName(), "127.0.0.1");
+
     TestUtil.setEnv(env);
   }
 

@@ -73,6 +73,45 @@
     </dependency>
 
     <dependency>
+      <groupId>io.dropwizard</groupId>
+      <artifactId>dropwizard-testing</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      In-process Neo4j for backend-light integration tests. The JUnit 5 artifacts are excluded:
+      their presence flips surefire to the JUnit Platform provider, which does not discover the
+      JUnit 4 tests of this module.
+    -->
+    <dependency>
+      <groupId>org.neo4j.test</groupId>
+      <artifactId>neo4j-harness</artifactId>
+      <version>5.4.0</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.junit.jupiter</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.junit.platform</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!--
+      A transitive dependency pins the ancient JNA 4.2.1, whose native library lacks an arm64
+      slice; the embedded Neo4j needs a JNA that runs on Apple Silicon.
+    -->
+    <dependency>
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna</artifactId>
+      <version>5.13.0</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-healthchecks</artifactId>
     </dependency>
@@ -138,6 +177,23 @@
   <build>
 
     <plugins>
+
+      <!--
+        TestUtil.setEnv redirects the CEDAR Neo4j environment variables at the in-process test
+        server via reflection into java.base internals, which JDK 17+ blocks without these opens.
+        Each test class runs in its own JVM (reuseForks false): CedarConfig is a singleton built
+        from the environment on first use, so the redirection must happen before any other test
+        class builds it.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.util=ALL-UNNAMED</argLine>
+          <reuseForks>false</reuseForks>
+        </configuration>
+      </plugin>
+
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
