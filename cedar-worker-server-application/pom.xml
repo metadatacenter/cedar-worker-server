@@ -219,4 +219,58 @@
 
   </build>
 
+
+  <profiles>
+    <profile>
+      <id>embedded-mariadb-mac-arm64</id>
+      <activation>
+        <os>
+          <family>mac</family>
+          <arch>aarch64</arch>
+        </os>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>ch.vorburger.mariaDB4j</groupId>
+          <artifactId>mariaDB4j-db-macos-arm64</artifactId>
+          <version>11.4.5</version>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>embedded-mariadb-linux64</id>
+      <activation>
+        <os>
+          <name>Linux</name>
+          <arch>amd64</arch>
+        </os>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>ch.vorburger.mariaDB4j</groupId>
+          <artifactId>mariaDB4j-db-linux64</artifactId>
+          <version>11.4.5</version>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>embedded-mariadb-winx64</id>
+      <activation>
+        <os>
+          <family>windows</family>
+        </os>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>ch.vorburger.mariaDB4j</groupId>
+          <artifactId>mariaDB4j-db-winx64</artifactId>
+          <version>11.4.5</version>
+          <scope>test</scope>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
+
 </project>

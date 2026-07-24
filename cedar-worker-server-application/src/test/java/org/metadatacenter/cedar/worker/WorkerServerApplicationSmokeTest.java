@@ -6,12 +6,14 @@ import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.metadatacenter.model.SystemComponent;
+import org.metadatacenter.util.test.EmbeddedCedarMySql;
 import org.metadatacenter.util.test.EmbeddedCedarNeo4j;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Map;
 
 /**
  * Boots the real application through the Dropwizard test rule. The worker server resolves the
@@ -23,7 +25,12 @@ import java.net.http.HttpResponse;
 public class WorkerServerApplicationSmokeTest {
 
   static {
-    // Must run before the application rule: startup itself needs the graph and the admin user
+    // Must run before the application rule: startup itself needs the graph and the admin user.
+    // The application log store comes from an in-process MariaDB; the MySQL redirection must
+    // precede the Neo4j seeding, which builds the CedarConfig singleton. Redis stays real: the
+    // valuerecommender queue helper acquires and holds a connection during runApp, so it is the
+    // worker's one remaining live dependency.
+    EmbeddedCedarMySql.startAndRedirectEnvironment("CEDAR_LOG_MYSQL", Map.of());
     EmbeddedCedarNeo4j.startRedirectAndSeed(SystemComponent.SERVER_WORKER);
   }
 
