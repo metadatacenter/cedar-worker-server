@@ -5,6 +5,8 @@ import io.dropwizard.testing.junit.DropwizardAppRule;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.metadatacenter.model.SystemComponent;
+import org.metadatacenter.util.test.EmbeddedCedarNeo4j;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -22,7 +24,7 @@ public class WorkerServerApplicationSmokeTest {
 
   static {
     // Must run before the application rule: startup itself needs the graph and the admin user
-    EmbeddedCedarNeo4j.startRedirectAndSeed();
+    EmbeddedCedarNeo4j.startRedirectAndSeed(SystemComponent.SERVER_WORKER);
   }
 
   @ClassRule

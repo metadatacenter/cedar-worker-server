@@ -78,31 +78,17 @@
       <scope>test</scope>
     </dependency>
 
-    <!--
-      In-process Neo4j for backend-light integration tests. The JUnit 5 artifacts are excluded:
-      their presence flips surefire to the JUnit Platform provider, which does not discover the
-      JUnit 4 tests of this module.
-    -->
+    <!-- In-process Neo4j and graph seeding for integration tests -->
     <dependency>
-      <groupId>org.neo4j.test</groupId>
-      <artifactId>neo4j-harness</artifactId>
-      <version>5.4.0</version>
+      <groupId>org.metadatacenter</groupId>
+      <artifactId>cedar-test-support-library</artifactId>
       <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.junit.jupiter</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.junit.platform</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <!--
-      A transitive dependency pins the ancient JNA 4.2.1, whose native library lacks an arm64
-      slice; the embedded Neo4j needs a JNA that runs on Apple Silicon.
+      Direct declaration required: the server stack transitively pins JNA 4.2.1 (no arm64
+      slice), and only a direct dependency wins Maven's mediation for the test classpath. The
+      version must match the one cedar-test-support-library declares.
     -->
     <dependency>
       <groupId>net.java.dev.jna</groupId>
