@@ -1,10 +1,11 @@
 package org.metadatacenter.cedar.worker;
 
+import io.dropwizard.testing.DropwizardTestSupport;
 import io.dropwizard.testing.ResourceHelpers;
-import io.dropwizard.testing.junit.DropwizardAppRule;
-import org.junit.Assert;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.metadatacenter.model.SystemComponent;
 import org.metadatacenter.util.test.EmbeddedCedarMySql;
 import org.metadatacenter.util.test.EmbeddedCedarNeo4j;
@@ -16,16 +17,16 @@ import java.net.http.HttpResponse;
 import java.util.Map;
 
 /**
- * Boots the real application through the Dropwizard test rule. The worker server resolves the
+ * Boots the real application through Dropwizard test support. The worker server resolves the
  * admin user and opens graph sessions at startup, so an in-process Neo4j is seeded before the
- * rule runs; MySQL and Redis are still expected, as in the development environment. Beyond
+ * test support runs; MySQL and Redis are still expected, as in the development environment. Beyond
  * configuration rot, this catches startup regressions in the permission and queue executor
  * wiring - the kind that previously surfaced only as a NullPointerException at boot.
  */
 public class WorkerServerApplicationSmokeTest {
 
   static {
-    // Must run before the application rule: startup itself needs the graph and the admin user.
+    // Must run before the test support: startup itself needs the graph and the admin user.
     // The application log store comes from an in-process MariaDB; the MySQL redirection must
     // precede the Neo4j seeding, which builds the CedarConfig singleton. Redis goes to a dead
     // port: queue writes are best-effort, the consumers take their first contact on background
@@ -34,11 +35,20 @@ public class WorkerServerApplicationSmokeTest {
     EmbeddedCedarNeo4j.startRedirectAndSeed(SystemComponent.SERVER_WORKER);
   }
 
-  @ClassRule
-  public static final DropwizardAppRule<WorkerServerConfiguration> SERVER =
-      new DropwizardAppRule<>(WorkerServerApplication.class, ResourceHelpers.resourceFilePath("test-config.yml"));
+  public static final DropwizardTestSupport<WorkerServerConfiguration> SERVER =
+      new DropwizardTestSupport<>(WorkerServerApplication.class, ResourceHelpers.resourceFilePath("test-config.yml"));
 
   private static final HttpClient CLIENT = HttpClient.newHttpClient();
+
+  @BeforeAll
+  public static void oneTimeSetUp() {
+    SERVER.before();
+  }
+
+  @AfterAll
+  public static void oneTimeTearDown() {
+    SERVER.after();
+  }
 
   @Test
   public void indexIsServed() throws Exception {
@@ -47,8 +57,8 @@ public class WorkerServerApplicationSmokeTest {
         .GET()
         .build();
     HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-    Assert.assertEquals(200, response.statusCode());
-    Assert.assertTrue(response.body().contains("name"));
+    Assertions.assertEquals(200, response.statusCode());
+    Assertions.assertTrue(response.body().contains("name"));
   }
 
 }
