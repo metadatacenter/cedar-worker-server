@@ -46,7 +46,7 @@ public class WorkerServerApplicationSmokeTest {
   private static final HttpClient CLIENT = HttpClient.newHttpClient();
 
   @BeforeAll
-  public static void oneTimeSetUp() {
+  public static void oneTimeSetUp() throws Exception {
     SERVER.before();
   }
 
