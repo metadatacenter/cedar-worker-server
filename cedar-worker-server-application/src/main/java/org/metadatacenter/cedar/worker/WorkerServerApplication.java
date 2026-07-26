@@ -4,8 +4,6 @@ import io.dropwizard.hibernate.HibernateBundle;
 import io.dropwizard.hibernate.UnitOfWorkAwareProxyFactory;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import org.knowm.dropwizard.sundial.SundialBundle;
-import org.knowm.dropwizard.sundial.SundialConfiguration;
 import org.metadatacenter.cedar.util.dw.CedarDefaultHealthCheck;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
@@ -59,14 +57,6 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     }
     );
     bootstrap.addBundle(hibernate);
-
-    SundialBundle<WorkerServerConfiguration> sundialBundle = new SundialBundle<>() {
-      @Override
-      public SundialConfiguration getSundialConfiguration(WorkerServerConfiguration configuration) {
-        return cedarConfig.getSundialConfig();
-      }
-    };
-    bootstrap.addBundle(sundialBundle);
   }
 
   @Override
@@ -128,9 +118,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         appLoggerExecutorService);
     environment.lifecycle().manage(appLoggerQueueProcessor);
 
-    ValuerecommenderReindexQueueProcessorHelper valuerecommenderReindexQueueProcessorHelper =
-        new ValuerecommenderReindexQueueProcessorHelper(valuerecommenderQueueService);
-    environment.lifecycle().manage(valuerecommenderReindexQueueProcessorHelper);
-    ValuerecommenderReindexQueueProcessor.init(valuerecommenderQueueService, valuerecommenderExecutorService);
+    ValuerecommenderReindexQueueProcessor valuerecommenderReindexQueueProcessor =
+        new ValuerecommenderReindexQueueProcessor(valuerecommenderQueueService, valuerecommenderExecutorService);
+    environment.lifecycle().manage(valuerecommenderReindexQueueProcessor);
   }
 }

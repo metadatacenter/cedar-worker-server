@@ -1,6 +1,6 @@
 package org.metadatacenter.worker;
 
-import org.knowm.sundial.exceptions.JobInterruptException;
+import io.dropwizard.lifecycle.Managed;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecutorService;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
 import org.metadatacenter.server.valuerecommender.model.ValuerecommenderReindexMessage;
@@ -13,26 +13,64 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class ValuerecommenderReindexQueueProcessor extends org.knowm.sundial.Job {
+/**
+ * Drains the value-recommender reindex queue and hands the batched messages to the reindex
+ * executor. The queue is non-blocking (a whole batch is read per poll, then de-duplicated), so
+ * this polls on a fixed interval rather than blocking on a dequeue. It replaces an earlier
+ * Sundial-scheduled job: Sundial was a scheduling framework wrapping this one queue drain, so the
+ * poll loop is kept in-process here, consistent with the worker's other queue consumers and with
+ * no third-party scheduler. Each poll borrows its own connection, so a queue (Redis) outage makes
+ * a poll fail and be retried on the next interval rather than ending the consumer.
+ */
+public class ValuerecommenderReindexQueueProcessor implements Managed {
 
   private static final Logger log = LoggerFactory.getLogger(ValuerecommenderReindexQueueProcessor.class);
 
-  private static ValuerecommenderReindexQueueService valuerecommenderQueueService;
-  private static ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
+  private static final int POLL_INTERVAL_SECONDS = 5;
 
-  public ValuerecommenderReindexQueueProcessor() {
-  }
+  private final ValuerecommenderReindexQueueService valuerecommenderQueueService;
+  private final ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
+  private volatile boolean doProcessing;
+  private ExecutorService executor;
 
-  public static void init(ValuerecommenderReindexQueueService valuerecommenderQueueService,
-                          ValuerecommenderReindexExecutorService valuerecommenderExecutorService) {
-    ValuerecommenderReindexQueueProcessor.valuerecommenderQueueService = valuerecommenderQueueService;
-    ValuerecommenderReindexQueueProcessor.valuerecommenderExecutorService = valuerecommenderExecutorService;
+  public ValuerecommenderReindexQueueProcessor(ValuerecommenderReindexQueueService valuerecommenderQueueService,
+                                               ValuerecommenderReindexExecutorService valuerecommenderExecutorService) {
+    this.valuerecommenderQueueService = valuerecommenderQueueService;
+    this.valuerecommenderExecutorService = valuerecommenderExecutorService;
+    this.doProcessing = true;
   }
 
   @Override
-  public void doRun() throws JobInterruptException {
-    //log.info("doRun...");
+  public void start() throws Exception {
+    log.info("ValuerecommenderReindexQueueProcessor.start()");
+    executor = Executors.newSingleThreadExecutor();
+    executor.submit(this::pollLoop);
+  }
+
+  private void pollLoop() {
+    while (doProcessing) {
+      try {
+        processMessages();
+      } catch (Exception e) {
+        // A poll must never end the consumer: log the failure (typically an unreachable Redis)
+        // and try again on the next interval
+        log.error("The value-recommender reindex poll failed, probably because the queue (Redis) "
+            + "became unreachable. Retrying on the next interval.", e);
+      }
+      try {
+        Thread.sleep(POLL_INTERVAL_SECONDS * 1000L);
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        return;
+      }
+    }
+    log.info("ValuerecommenderReindexQueueProcessor finished gracefully");
+  }
+
+  private void processMessages() {
     List<String> logMessages = valuerecommenderQueueService.getAllMessages();
     if (logMessages.size() > 0) {
       log.info("Message count: " + logMessages.size());
@@ -67,6 +105,16 @@ public class ValuerecommenderReindexQueueProcessor extends org.knowm.sundial.Job
         log.warn("After analyzing messages, none remained to be processed.");
       }
     }
+  }
+
+  @Override
+  public void stop() throws Exception {
+    log.info("ValuerecommenderReindexQueueProcessor.stop()");
+    doProcessing = false;
+    if (executor != null) {
+      executor.shutdownNow();
+    }
+    valuerecommenderQueueService.close();
   }
 
 }
