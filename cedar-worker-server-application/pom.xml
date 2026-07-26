@@ -135,16 +135,6 @@
     </dependency>
 
     <dependency>
-      <groupId>javax.activation</groupId>
-      <artifactId>activation</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.sun.activation</groupId>
-      <artifactId>javax.activation</artifactId>
-    </dependency>
-
-    <dependency>
       <groupId>com.mysql</groupId>
       <artifactId>mysql-connector-j</artifactId>
     </dependency>
