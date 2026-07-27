@@ -28,8 +28,32 @@ public class AppLoggerQueueProcessor implements Managed {
     doProcessing = true;
   }
 
+  private static final int RETRY_DELAY_SECONDS = 10;
+
   private void digestMessages() {
     log.info("AppLoggerQueueProcessor.start()");
+    while (doProcessing) {
+      try {
+        consumeMessages();
+      } catch (Exception e) {
+        if (doProcessing) {
+          // The consumer must never die silently: log the failure and keep retrying, so a
+          // queue (Redis) outage suspends processing instead of ending it
+          log.error("The application log queue consumer failed, probably because the queue (Redis) became unreachable. "
+              + "Retrying in " + RETRY_DELAY_SECONDS + " seconds.", e);
+          try {
+            Thread.sleep(RETRY_DELAY_SECONDS * 1000L);
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return;
+          }
+        }
+      }
+    }
+    log.info("AppLoggerQueueProcessor finished gracefully");
+  }
+
+  private void consumeMessages() {
     appLoggerQueueService.initializeBlockingQueue();
     log.info("Message count in queue:" + appLoggerQueueService.messageCount());
     List<String> logMessages;
@@ -54,7 +78,6 @@ public class AppLoggerQueueProcessor implements Managed {
         log.warn("Unable to handle message, it is null.");
       }
     }
-    log.info("SearchPermissionQueueProcessor finished gracefully");
   }
 
   @Override

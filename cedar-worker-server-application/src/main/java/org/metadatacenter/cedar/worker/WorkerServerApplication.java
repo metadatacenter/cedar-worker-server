@@ -2,12 +2,10 @@ package org.metadatacenter.cedar.worker;
 
 import io.dropwizard.hibernate.HibernateBundle;
 import io.dropwizard.hibernate.UnitOfWorkAwareProxyFactory;
-import io.dropwizard.setup.Bootstrap;
-import io.dropwizard.setup.Environment;
-import org.knowm.dropwizard.sundial.SundialBundle;
-import org.knowm.dropwizard.sundial.SundialConfiguration;
+import io.dropwizard.core.setup.Bootstrap;
+import io.dropwizard.core.setup.Environment;
+import org.metadatacenter.cedar.util.dw.CedarDefaultHealthCheck;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
-import org.metadatacenter.cedar.worker.health.WorkerServerHealthCheck;
 import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
 import org.metadatacenter.cedar.worker.resources.IndexResource;
 import org.metadatacenter.config.CedarConfig;
@@ -59,14 +57,6 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     }
     );
     bootstrap.addBundle(hibernate);
-
-    SundialBundle<WorkerServerConfiguration> sundialBundle = new SundialBundle<>() {
-      @Override
-      public SundialConfiguration getSundialConfiguration(WorkerServerConfiguration configuration) {
-        return cedarConfig.getSundialConfig();
-      }
-    };
-    bootstrap.addBundle(sundialBundle);
   }
 
   @Override
@@ -107,10 +97,10 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   @Override
   public void runApp(WorkerServerConfiguration configuration, Environment environment) {
 
-    final IndexResource index = new IndexResource();
+    final IndexResource index = new IndexResource(cedarConfig);
     environment.jersey().register(index);
 
-    final WorkerServerHealthCheck healthCheck = new WorkerServerHealthCheck();
+    final CedarDefaultHealthCheck healthCheck = new CedarDefaultHealthCheck();
     environment.healthChecks().register("message", healthCheck);
 
     final CommandInclusionSubgraphResource commandInclusionsubgraph = new CommandInclusionSubgraphResource(cedarConfig);
@@ -128,9 +118,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         appLoggerExecutorService);
     environment.lifecycle().manage(appLoggerQueueProcessor);
 
-    ValuerecommenderReindexQueueProcessorHelper valuerecommenderReindexQueueProcessorHelper =
-        new ValuerecommenderReindexQueueProcessorHelper(valuerecommenderQueueService);
-    environment.lifecycle().manage(valuerecommenderReindexQueueProcessorHelper);
-    ValuerecommenderReindexQueueProcessor.init(valuerecommenderQueueService, valuerecommenderExecutorService);
+    ValuerecommenderReindexQueueProcessor valuerecommenderReindexQueueProcessor =
+        new ValuerecommenderReindexQueueProcessor(valuerecommenderQueueService, valuerecommenderExecutorService);
+    environment.lifecycle().manage(valuerecommenderReindexQueueProcessor);
   }
 }
