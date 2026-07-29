@@ -19,7 +19,10 @@ public class PermissionQueueProcessor implements Managed {
 
   private final PermissionQueueService permissionQueueService;
   private final SearchPermissionExecutorService searchPermissionExecutorService;
-  private boolean doProcessing;
+  // Written by the lifecycle thread in stop(), read by the processing thread in digestMessages():
+  // must be volatile or the processing thread may never observe the stop and loop forever.
+  private volatile boolean doProcessing;
+  private ExecutorService executor;
 
   public PermissionQueueProcessor(PermissionQueueService permissionQueueService,
                                   SearchPermissionExecutorService searchPermissionExecutorService) {
@@ -86,7 +89,7 @@ public class PermissionQueueProcessor implements Managed {
 
   @Override
   public void start() throws Exception {
-    ExecutorService executor = Executors.newSingleThreadExecutor();
+    executor = Executors.newSingleThreadExecutor();
     executor.submit(this::digestMessages);
   }
 
@@ -98,5 +101,10 @@ public class PermissionQueueProcessor implements Managed {
     log.info("Close Jedis");
     permissionQueueService.enqueueEvent(null);
     permissionQueueService.close();
+    // Reclaim the worker thread. digestMessages() has already been asked to stop (doProcessing) and
+    // unblocked (the null event above), so an orderly shutdown lets it finish and terminates the thread.
+    if (executor != null) {
+      executor.shutdown();
+    }
   }
 }
