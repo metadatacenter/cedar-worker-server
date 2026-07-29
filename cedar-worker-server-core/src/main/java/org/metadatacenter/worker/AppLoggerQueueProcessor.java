@@ -19,7 +19,8 @@ public class AppLoggerQueueProcessor implements Managed {
 
   private final AppLoggerQueueService appLoggerQueueService;
   private final AppLoggerExecutorService appLoggerExecutorService;
-  private boolean doProcessing;
+  private volatile boolean doProcessing;
+  private ExecutorService executor;
 
   public AppLoggerQueueProcessor(AppLoggerQueueService appLoggerQueueService,
                                  AppLoggerExecutorService appLoggerExecutorService) {
@@ -82,7 +83,7 @@ public class AppLoggerQueueProcessor implements Managed {
 
   @Override
   public void start() throws Exception {
-    ExecutorService executor = Executors.newSingleThreadExecutor();
+    executor = Executors.newSingleThreadExecutor();
     executor.submit(this::digestMessages);
   }
 
@@ -94,5 +95,8 @@ public class AppLoggerQueueProcessor implements Managed {
     log.info("Close Jedis");
     appLoggerQueueService.enqueueEvent(null);
     appLoggerQueueService.close();
+    if (executor != null) {
+      executor.shutdown();
+    }
   }
 }

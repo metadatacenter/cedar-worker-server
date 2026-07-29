@@ -19,7 +19,8 @@ public class CloneInstancesQueueProcessor implements Managed {
 
   private final CloneInstancesQueueService cloneInstancesQueueService;
   private final CloneInstancesExecutorService cloneInstancesExecutorService;
-  private boolean doProcessing;
+  private volatile boolean doProcessing;
+  private ExecutorService executor;
 
   public CloneInstancesQueueProcessor(CloneInstancesQueueService cloneInstancesQueueService,
                                       CloneInstancesExecutorService cloneInstancesExecutorService) {
@@ -86,7 +87,7 @@ public class CloneInstancesQueueProcessor implements Managed {
 
   @Override
   public void start() throws Exception {
-    ExecutorService executor = Executors.newSingleThreadExecutor();
+    executor = Executors.newSingleThreadExecutor();
     executor.submit(this::digestMessages);
   }
 
@@ -98,5 +99,8 @@ public class CloneInstancesQueueProcessor implements Managed {
     log.info("Close Jedis");
     cloneInstancesQueueService.enqueueEvent(null);
     cloneInstancesQueueService.close();
+    if (executor != null) {
+      executor.shutdown();
+    }
   }
 }

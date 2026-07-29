@@ -56,6 +56,9 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
         log.error("Error in inclusion subgraph regeneration executor", e);
       }
     });
+    // shutdown() is orderly: the already-submitted task still runs to completion, then the single
+    // worker thread is released instead of leaking one per invocation.
+    executor.shutdown();
 
     return Response.ok().build();
   }
