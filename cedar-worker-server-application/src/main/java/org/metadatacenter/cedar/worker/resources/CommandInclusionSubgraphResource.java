@@ -4,10 +4,10 @@ import com.codahale.metrics.annotation.Timed;
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.exception.CedarException;
 import org.metadatacenter.exception.CedarProcessingException;
+import org.metadatacenter.cedar.worker.security.AdminCommand;
 import org.metadatacenter.rest.context.CedarRequestContext;
 import org.metadatacenter.rest.context.CedarRequestContextFactory;
 import org.metadatacenter.server.search.util.RegenerateInclusionSubgraphTask;
-import org.metadatacenter.server.security.model.auth.CedarPermission;
 import org.metadatacenter.server.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,8 +19,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static org.metadatacenter.rest.assertion.GenericAssertions.LoggedIn;
 
 @Path("/command")
 @Produces(MediaType.APPLICATION_JSON)
@@ -42,8 +40,7 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
   @Path("/regenerate-inclusion-subgraph")
   public Response regenerateRulesIndex() throws CedarException {
     CedarRequestContext c = buildRequestContext();
-    c.must(c.user()).be(LoggedIn);
-    c.must(c.user()).have(CedarPermission.INCLUSION_SUBGRAPH_RECREATE);
+    AdminCommand.REGENERATE_INCLUSION_SUBGRAPH.enforce(c);
 
     ExecutorService executor = Executors.newSingleThreadExecutor();
     executor.submit(() -> {
