@@ -19,8 +19,10 @@ import org.metadatacenter.server.logging.dao.agg.LogAggregationStateDAO;
 import org.metadatacenter.server.logging.dbmodel.ApplicationCypherLog;
 import org.metadatacenter.server.logging.dbmodel.ApplicationRequestLog;
 import org.metadatacenter.server.logging.dbmodel.agg.AggCypherHourly;
+import org.metadatacenter.server.logging.dbmodel.agg.AggCypherOutlier;
 import org.metadatacenter.server.logging.dbmodel.agg.AggCypherQueryCatalog;
 import org.metadatacenter.server.logging.dbmodel.agg.AggRequestHourly;
+import org.metadatacenter.server.logging.dbmodel.agg.AggRequestOutlier;
 import org.metadatacenter.server.logging.dbmodel.agg.AggRequestUserHourly;
 import org.metadatacenter.server.logging.dbmodel.agg.LogAggregationState;
 import org.metadatacenter.server.queue.util.CloneInstancesQueueService;
@@ -75,6 +77,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         AggCypherHourly.class,
         AggRequestUserHourly.class,
         AggCypherQueryCatalog.class,
+        AggRequestOutlier.class,
+        AggCypherOutlier.class,
         LogAggregationState.class,
     }
     );

@@ -74,6 +74,10 @@ public class HistoricalBackfillJob implements Managed {
       service.initBackfillState(LogAggregationService.SRC_CYPHER_HIST);
       drain(LogAggregationService.SRC_REQUEST_HIST, () -> service.runBackfillRequestBatch(batchSize));
       drain(LogAggregationService.SRC_CYPHER_HIST, () -> service.runBackfillCypherBatch(batchSize));
+      if (running) {
+        // keep history's worst instances before the *_pre284 tables are (manually) dropped
+        service.captureHistoryOutliers();
+      }
       log.info("HistoricalBackfillJob finished.");
     } catch (Exception e) {
       // best-effort, like the queue consumer: log and stop; next boot resumes from the cursor
