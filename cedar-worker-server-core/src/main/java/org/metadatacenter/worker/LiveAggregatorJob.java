@@ -109,6 +109,14 @@ public class LiveAggregatorJob implements Managed {
         return true;
       }
     }
+    if (total > 0) {
+      // day fully aggregated -> keep its slowest/error instances forever (survives the prune)
+      if (request) {
+        service.captureLiveRequestDayOutliers(dayStart, dayEnd);
+      } else {
+        service.captureLiveCypherDayOutliers(dayStart, dayEnd);
+      }
+    }
     log.info("Aggregated live {} day {} ({} rows).", request ? "request" : "cypher", dayStart, total);
     return true;
   }
