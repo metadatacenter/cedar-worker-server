@@ -2,6 +2,7 @@ package org.metadatacenter.worker;
 
 import io.dropwizard.lifecycle.Managed;
 import org.metadatacenter.server.queue.util.CloneInstancesQueueService;
+import org.metadatacenter.server.queue.util.RepeatedFailureLogger;
 import org.metadatacenter.server.resource.CloneInstancesExecutorService;
 import org.metadatacenter.server.resource.CloneInstancesQueueEvent;
 import org.metadatacenter.util.json.JsonMapper;
@@ -21,6 +22,7 @@ public class CloneInstancesQueueProcessor implements Managed {
   private final CloneInstancesExecutorService cloneInstancesExecutorService;
   private volatile boolean doProcessing;
   private ExecutorService executor;
+  private final RepeatedFailureLogger consumerFailureLogger = new RepeatedFailureLogger();
 
   public CloneInstancesQueueProcessor(CloneInstancesQueueService cloneInstancesQueueService,
                                       CloneInstancesExecutorService cloneInstancesExecutorService) {
@@ -39,9 +41,11 @@ public class CloneInstancesQueueProcessor implements Managed {
       } catch (Exception e) {
         if (doProcessing) {
           // The consumer must never die silently: log the failure and keep retrying, so a
-          // queue (Redis) outage suspends processing instead of ending it
-          log.error("The clone instances queue consumer failed, probably because the queue (Redis) became unreachable. "
-              + "Retrying in " + RETRY_DELAY_SECONDS + " seconds.", e);
+          // queue (Redis) outage suspends processing instead of ending it. An outage lasts across
+          // many retries, so only the first failure carries a stack trace
+          consumerFailureLogger.report(log, "The clone instances queue consumer failed, probably because "
+              + "the queue (Redis) became unreachable. Retrying in " + RETRY_DELAY_SECONDS + " seconds.",
+              "failures", e);
           try {
             Thread.sleep(RETRY_DELAY_SECONDS * 1000L);
           } catch (InterruptedException ie) {

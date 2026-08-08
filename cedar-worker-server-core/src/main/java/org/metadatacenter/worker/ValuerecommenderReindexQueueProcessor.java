@@ -1,6 +1,7 @@
 package org.metadatacenter.worker;
 
 import io.dropwizard.lifecycle.Managed;
+import org.metadatacenter.server.queue.util.RepeatedFailureLogger;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecutorService;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
 import org.metadatacenter.server.valuerecommender.model.ValuerecommenderReindexMessage;
@@ -35,6 +36,7 @@ public class ValuerecommenderReindexQueueProcessor implements Managed {
   private final ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
   private volatile boolean doProcessing;
   private ExecutorService executor;
+  private final RepeatedFailureLogger pollFailureLogger = new RepeatedFailureLogger();
 
   public ValuerecommenderReindexQueueProcessor(ValuerecommenderReindexQueueService valuerecommenderQueueService,
                                                ValuerecommenderReindexExecutorService valuerecommenderExecutorService) {
@@ -56,9 +58,10 @@ public class ValuerecommenderReindexQueueProcessor implements Managed {
         processMessages();
       } catch (Exception e) {
         // A poll must never end the consumer: log the failure (typically an unreachable Redis)
-        // and try again on the next interval
-        log.error("The value-recommender reindex poll failed, probably because the queue (Redis) "
-            + "became unreachable. Retrying on the next interval.", e);
+        // and try again on the next interval. An outage spans many polls, so only the first
+        // failure carries a stack trace
+        pollFailureLogger.report(log, "The value-recommender reindex poll failed, probably because "
+            + "the queue (Redis) became unreachable. Retrying on the next interval.", "failures", e);
       }
       try {
         Thread.sleep(POLL_INTERVAL_SECONDS * 1000L);

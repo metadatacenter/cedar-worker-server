@@ -2,6 +2,7 @@ package org.metadatacenter.worker;
 
 import io.dropwizard.lifecycle.Managed;
 import org.metadatacenter.server.queue.util.PermissionQueueService;
+import org.metadatacenter.server.queue.util.RepeatedFailureLogger;
 import org.metadatacenter.server.search.SearchPermissionQueueEvent;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.util.json.JsonMapper;
@@ -23,6 +24,7 @@ public class PermissionQueueProcessor implements Managed {
   // must be volatile or the processing thread may never observe the stop and loop forever.
   private volatile boolean doProcessing;
   private ExecutorService executor;
+  private final RepeatedFailureLogger consumerFailureLogger = new RepeatedFailureLogger();
 
   public PermissionQueueProcessor(PermissionQueueService permissionQueueService,
                                   SearchPermissionExecutorService searchPermissionExecutorService) {
@@ -41,9 +43,11 @@ public class PermissionQueueProcessor implements Managed {
       } catch (Exception e) {
         if (doProcessing) {
           // The consumer must never die silently: log the failure and keep retrying, so a
-          // queue (Redis) outage suspends processing instead of ending it
-          log.error("The search permission queue consumer failed, probably because the queue (Redis) became unreachable. "
-              + "Retrying in " + RETRY_DELAY_SECONDS + " seconds.", e);
+          // queue (Redis) outage suspends processing instead of ending it. An outage lasts across
+          // many retries, so only the first failure carries a stack trace
+          consumerFailureLogger.report(log, "The search permission queue consumer failed, probably because "
+              + "the queue (Redis) became unreachable. Retrying in " + RETRY_DELAY_SECONDS + " seconds.",
+              "failures", e);
           try {
             Thread.sleep(RETRY_DELAY_SECONDS * 1000L);
           } catch (InterruptedException ie) {

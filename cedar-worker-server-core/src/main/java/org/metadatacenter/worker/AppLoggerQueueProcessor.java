@@ -4,6 +4,7 @@ import io.dropwizard.lifecycle.Managed;
 import org.metadatacenter.server.logging.AppLoggerExecutorService;
 import org.metadatacenter.server.logging.AppLoggerQueueService;
 import org.metadatacenter.server.logging.model.AppLogMessage;
+import org.metadatacenter.server.queue.util.RepeatedFailureLogger;
 import org.metadatacenter.util.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +22,7 @@ public class AppLoggerQueueProcessor implements Managed {
   private final AppLoggerExecutorService appLoggerExecutorService;
   private volatile boolean doProcessing;
   private ExecutorService executor;
+  private final RepeatedFailureLogger consumerFailureLogger = new RepeatedFailureLogger();
 
   public AppLoggerQueueProcessor(AppLoggerQueueService appLoggerQueueService,
                                  AppLoggerExecutorService appLoggerExecutorService) {
@@ -39,9 +41,11 @@ public class AppLoggerQueueProcessor implements Managed {
       } catch (Exception e) {
         if (doProcessing) {
           // The consumer must never die silently: log the failure and keep retrying, so a
-          // queue (Redis) outage suspends processing instead of ending it
-          log.error("The application log queue consumer failed, probably because the queue (Redis) became unreachable. "
-              + "Retrying in " + RETRY_DELAY_SECONDS + " seconds.", e);
+          // queue (Redis) outage suspends processing instead of ending it. An outage lasts across
+          // many retries, so only the first failure carries a stack trace
+          consumerFailureLogger.report(log, "The application log queue consumer failed, probably because "
+              + "the queue (Redis) became unreachable. Retrying in " + RETRY_DELAY_SECONDS + " seconds.",
+              "failures", e);
           try {
             Thread.sleep(RETRY_DELAY_SECONDS * 1000L);
           } catch (InterruptedException ie) {
