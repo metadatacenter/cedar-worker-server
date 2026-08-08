@@ -56,6 +56,39 @@
       <artifactId>dropwizard-lifecycle</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- The executor services these processors hand messages to are concrete classes with heavy
+         constructors, so the tests mock them rather than build them. -->
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!--
+      The queue-service test fixture - a real Redis on a free port, and the cache configuration
+      pointed at it - shared from the library that owns the queue services. Test-scope dependencies
+      are not transitive, so the embedded server is declared alongside it; both versions come from
+      cedar-parent.
+    -->
+    <dependency>
+      <groupId>org.metadatacenter</groupId>
+      <artifactId>cedar-queue-operations-library</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.github.codemonstur</groupId>
+      <artifactId>embedded-redis</artifactId>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
 </project>
