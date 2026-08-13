@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
@@ -97,9 +98,10 @@ class PermissionQueueProcessorTest {
    * across the estate, so one poisonous event stalling the loop would stop every later permission
    * change from reaching the index.
    * <p>
-   * The window is deliberately shorter than the consumer's retry delay. Handling the failure inside
-   * the message loop takes milliseconds; letting it escape to the outer loop costs a reconnect and
-   * a wait, so a tight timeout is what separates "absorbed" from "recovered from".
+   * The consumer retries a failing event a few times before parking it, so the event behind it
+   * waits out those attempts. The window covers them; what it must not cover is the outer loop's
+   * far longer reconnect-and-wait, which is what letting the failure escape the message loop would
+   * cost.
    */
   @Test
   void afailingEventDoesNotStopTheOnesBehindIt() throws Exception {
@@ -110,12 +112,77 @@ class PermissionQueueProcessorTest {
     queueService.enqueueEvent(event("poison"));
     queueService.enqueueEvent(event("after-the-poison"));
 
-    ArgumentCaptor<SearchPermissionQueueEvent> handled =
-        ArgumentCaptor.forClass(SearchPermissionQueueEvent.class);
-    verify(executor, timeout(5_000).times(2)).handleEvent(handled.capture());
+    // Named rather than counted: the retries of the poisonous event are themselves invocations, so
+    // a count would be satisfied without the second event ever being reached
+    verify(executor, timeout(9_000)).handleEvent(argThat(e -> "after-the-poison".equals(e.getId())));
+  }
 
-    assertTrue(handled.getAllValues().stream().anyMatch(e -> "after-the-poison".equals(e.getId())),
-        "the event behind the failing one must still be handled");
+  /**
+   * A transient failure is what the retry is for. The event must end up applied, and must not also
+   * be parked - a dead-letter entry for an event that did land would send someone replaying work
+   * that was already done.
+   */
+  @Test
+  void anEventThatFailsOnceIsRetriedAndApplied() throws Exception {
+    SearchPermissionExecutorService executor = mock(SearchPermissionExecutorService.class);
+    doThrow(new RuntimeException("neo4j blipped")).doNothing().when(executor).handleEvent(any());
+    startWith(executor);
+
+    queueService.enqueueEvent(event("artifact-1"));
+
+    verify(executor, timeout(20_000).times(2)).handleEvent(any());
+    Thread.sleep(1_000);
+    assertEquals(0, queueService.deadLetterCount(), "an event that succeeded must not be parked");
+  }
+
+  /**
+   * The defect this covers: BLPOP takes the event off the queue before handling it, so an event the
+   * consumer could not apply used to be logged and forgotten, leaving the search index's
+   * permissions silently out of step with the graph. It has to survive somewhere.
+   */
+  @Test
+  void anEventThatKeepsFailingIsParkedRatherThanLost() throws Exception {
+    SearchPermissionExecutorService executor = mock(SearchPermissionExecutorService.class);
+    doThrow(new RuntimeException("indexing blew up")).when(executor).handleEvent(any());
+    startWith(executor);
+
+    queueService.enqueueEvent(event("artifact-1"));
+
+    verify(executor, timeout(20_000).times(3)).handleEvent(any());
+
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (queueService.deadLetterCount() == 0 && System.currentTimeMillis() < deadline) {
+      Thread.sleep(100);
+    }
+    assertEquals(1, queueService.deadLetterCount(),
+        "the event the consumer gave up on must be recoverable from the dead-letter queue");
+
+    try (redis.clients.jedis.Jedis jedis = new redis.clients.jedis.Jedis("127.0.0.1", redis.port())) {
+      String parked = jedis.lrange(queueService.getDeadLetterQueueName(), 0, -1).get(0);
+      assertTrue(parked.contains("artifact-1"), "the parked payload should be the original message");
+    }
+  }
+
+  /**
+   * Retrying will not make a malformed message parse, so it is parked on the first attempt rather
+   * than costing the events behind it three trips through the executor.
+   */
+  @Test
+  void aMessageThatCannotBeParsedIsParkedWithoutRetrying() throws Exception {
+    SearchPermissionExecutorService executor = mock(SearchPermissionExecutorService.class);
+    startWith(executor);
+
+    try (redis.clients.jedis.Jedis jedis = new redis.clients.jedis.Jedis("127.0.0.1", redis.port())) {
+      jedis.rpush(QueueTestConfig.queueName(
+          org.metadatacenter.server.queue.util.QueueService.SEARCH_PERMISSION_QUEUE_ID), "not json at all");
+    }
+
+    long deadline = System.currentTimeMillis() + 20_000;
+    while (queueService.deadLetterCount() == 0 && System.currentTimeMillis() < deadline) {
+      Thread.sleep(100);
+    }
+    assertEquals(1, queueService.deadLetterCount(), "an unparseable message must be kept, not dropped");
+    verify(executor, times(0)).handleEvent(any());
   }
 
   /**
