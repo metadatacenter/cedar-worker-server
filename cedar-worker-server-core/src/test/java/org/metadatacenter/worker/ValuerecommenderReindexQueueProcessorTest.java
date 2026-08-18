@@ -42,11 +42,16 @@ class ValuerecommenderReindexQueueProcessorTest {
   private ValuerecommenderReindexQueueService queueService;
   private ValuerecommenderReindexQueueProcessor processor;
 
-  private ValuerecommenderReindexExecutorService startProcessor() throws Exception {
+  private ValuerecommenderReindexExecutorService prepareProcessor() throws Exception {
     redis = EmbeddedRedis.start();
     queueService = new ValuerecommenderReindexQueueService(QueueTestConfig.onPort(redis.port()));
     ValuerecommenderReindexExecutorService executor = mock(ValuerecommenderReindexExecutorService.class);
     processor = new ValuerecommenderReindexQueueProcessor(queueService, executor);
+    return executor;
+  }
+
+  private ValuerecommenderReindexExecutorService startProcessor() throws Exception {
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
     processor.start();
     return executor;
   }
@@ -132,12 +137,13 @@ class ValuerecommenderReindexQueueProcessorTest {
    */
   @Test
   void oneBatchIsDeliveredPerPollRatherThanOneMessage() throws Exception {
-    ValuerecommenderReindexExecutorService executor = startProcessor();
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
 
     for (int i = 0; i < 5; i++) {
       queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.INSTANCE,
           ValuerecommenderReindexMessageActionType.UPDATED));
     }
+    processor.start();
 
     ArgumentCaptor<List<ValuerecommenderReindexMessage>> batch = listCaptor();
     verify(executor, timeout(30_000)).handleMessages(batch.capture());
