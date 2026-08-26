@@ -10,11 +10,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
-public class PermissionQueueProcessor implements Managed {
+public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor {
 
   private static final Logger log = LoggerFactory.getLogger(PermissionQueueProcessor.class);
 
@@ -24,6 +27,9 @@ public class PermissionQueueProcessor implements Managed {
   // must be volatile or the processing thread may never observe the stop and loop forever.
   private volatile boolean doProcessing;
   private ExecutorService executor;
+  private Future<?> workerFuture;
+  private volatile Instant lastFailureAt;
+  private volatile Instant lastSuccessAt;
   private final RepeatedFailureLogger consumerFailureLogger = new RepeatedFailureLogger();
 
   public PermissionQueueProcessor(PermissionQueueService permissionQueueService,
@@ -48,6 +54,7 @@ public class PermissionQueueProcessor implements Managed {
         consumeMessages();
       } catch (Exception e) {
         if (doProcessing) {
+          markFailure();
           // The consumer must never die silently: log the failure and keep retrying, so a
           // queue (Redis) outage suspends processing instead of ending it. An outage lasts across
           // many retries, so only the first failure carries a stack trace
@@ -67,30 +74,37 @@ public class PermissionQueueProcessor implements Managed {
 
   private void consumeMessages() {
     permissionQueueService.initializeBlockingQueue();
+    markSuccess();
     List<String> permissionMessages;
     while (doProcessing) {
-      log.info("Waiting for a message in the search permission queue.");
       permissionMessages = permissionQueueService.waitForMessages();
-      SearchPermissionQueueEvent event = null;
-      String value = null;
       if (permissionMessages != null && !permissionMessages.isEmpty()) {
         log.info("Got permission message.");
-        value = permissionMessages.get(1);
+        String value = permissionMessages.get(1);
+        if (!doProcessing) {
+          // Leave a message claimed during shutdown in the processing list. The next worker
+          // initialization recovers it ahead of newer work, so shutdown cannot discard it.
+          break;
+        }
+        SearchPermissionQueueEvent event = null;
+        Exception messageError = null;
         try {
           event = JsonMapper.MAPPER.readValue(value, SearchPermissionQueueEvent.class);
         } catch (IOException e) {
           log.error("There was an error while deserializing message", e);
-          // Retrying will not make an unparseable message parse, so park it immediately
-          deadLetter(value, e);
+          messageError = e;
+          markFailure();
         }
-      }
-      if (event != null) {
-        log.info("  event id: " + event.getId());
-        log.info("      type: " + event.getEventType());
-        log.info(" createdAt: " + event.getCreatedAt());
-        handleWithRetries(event, value);
-      } else {
-        log.warn("Unable to handle message, it is null.");
+        if (event != null) {
+          log.info("  event id: " + event.getId());
+          log.info("      type: " + event.getEventType());
+          log.info(" createdAt: " + event.getCreatedAt());
+          handleWithRetries(event, value);
+        } else if (doProcessing) {
+          log.warn("Unable to handle message, it is null.");
+          deadLetter(value, messageError == null
+              ? new IllegalArgumentException("The search-permission message was null") : messageError);
+        }
       }
     }
     log.info("SearchPermissionQueueProcessor finished gracefully");
@@ -99,17 +113,25 @@ public class PermissionQueueProcessor implements Managed {
   /**
    * Applies an event, retrying a failure before giving up on it.
    * <p>
-   * The message is already off the queue by the time it is handled, so a failure here is the last
-   * chance to keep the event. Most failures are an unreachable Neo4j or OpenSearch, which a retry
-   * moments later clears; what a retry cannot clear goes to the dead-letter queue, where it stays
-   * visible and replayable rather than being lost and leaving search permissions stale.
+   * The message is already claimed into the processing list by the time it is handled. Most
+   * failures are an unreachable Neo4j or OpenSearch, which a retry moments later clears; what a
+   * retry cannot clear goes to the dead-letter queue, where it stays visible and replayable rather
+   * than leaving search permissions stale.
    */
   private void handleWithRetries(SearchPermissionQueueEvent event, String rawMessage) {
     for (int attempt = 1; attempt <= MAX_HANDLING_ATTEMPTS; attempt++) {
+      if (!doProcessing) {
+        return;
+      }
       try {
         searchPermissionExecutorService.handleEvent(event);
+        if (!permissionQueueService.acknowledge(rawMessage)) {
+          throw new IllegalStateException("The processed message could not be acknowledged");
+        }
+        markSuccess();
         return;
       } catch (Exception e) {
+        markFailure();
         if (attempt == MAX_HANDLING_ATTEMPTS) {
           log.error("There was an error while handling the message. Giving up after "
               + MAX_HANDLING_ATTEMPTS + " attempts.", e);
@@ -144,15 +166,15 @@ public class PermissionQueueProcessor implements Managed {
       log.error("The message was moved to " + permissionQueueService.getDeadLetterQueueName()
           + ". Search permissions for the affected resources are stale until it is replayed.", cause);
     } else {
-      log.error("The message could not be moved to the dead-letter queue and is lost. "
-          + "Search permissions for the affected resources are stale.", cause);
+      log.error("The message could not be moved to the dead-letter queue; it remains in-flight "
+          + "for recovery. Search permissions for the affected resources remain stale.", cause);
     }
   }
 
   @Override
   public void start() throws Exception {
     executor = Executors.newSingleThreadExecutor();
-    executor.submit(this::digestMessages);
+    workerFuture = executor.submit(this::digestMessages);
   }
 
   @Override
@@ -160,13 +182,41 @@ public class PermissionQueueProcessor implements Managed {
     log.info("SearchPermissionQueueProcessor.stop()");
     log.info("Set looping flag to false");
     doProcessing = false;
-    log.info("Close Jedis");
-    permissionQueueService.enqueueEvent(null);
-    permissionQueueService.close();
-    // Reclaim the worker thread. digestMessages() has already been asked to stop (doProcessing) and
-    // unblocked (the null event above), so an orderly shutdown lets it finish and terminates the thread.
+    permissionQueueService.interruptWait();
+    // Also interrupt a retry delay or the outer connection-backoff delay.
     if (executor != null) {
-      executor.shutdown();
+      executor.shutdownNow();
+      executor.awaitTermination(5, TimeUnit.SECONDS);
     }
+    log.info("Close Jedis");
+    permissionQueueService.close();
+  }
+
+  private void markFailure() {
+    lastFailureAt = Instant.now();
+  }
+
+  private void markSuccess() {
+    lastSuccessAt = Instant.now();
+  }
+
+  @Override
+  public String getProcessorName() {
+    return "search-permission";
+  }
+
+  @Override
+  public boolean isRunning() {
+    return doProcessing && workerFuture != null && !workerFuture.isDone();
+  }
+
+  @Override
+  public Instant getLastFailureAt() {
+    return lastFailureAt;
+  }
+
+  @Override
+  public Instant getLastSuccessAt() {
+    return lastSuccessAt;
   }
 }

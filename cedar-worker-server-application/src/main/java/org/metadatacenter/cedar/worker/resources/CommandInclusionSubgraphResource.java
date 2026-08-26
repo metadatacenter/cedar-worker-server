@@ -3,62 +3,54 @@ package org.metadatacenter.cedar.worker.resources;
 import com.codahale.metrics.annotation.Timed;
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.exception.CedarException;
-import org.metadatacenter.exception.CedarProcessingException;
+import org.metadatacenter.cedar.worker.InclusionSubgraphRegenerationManager;
 import org.metadatacenter.cedar.worker.security.AdminCommand;
 import org.metadatacenter.rest.context.CedarRequestContext;
-import org.metadatacenter.rest.context.CedarRequestContextFactory;
-import org.metadatacenter.server.search.util.RegenerateInclusionSubgraphTask;
-import org.metadatacenter.server.service.UserService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.net.URI;
 
 @Path("/command")
 @Produces(MediaType.APPLICATION_JSON)
 public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
 
-  private static final Logger log = LoggerFactory.getLogger(CommandInclusionSubgraphResource.class);
-  private static UserService userService;
+  private final InclusionSubgraphRegenerationManager jobManager;
 
-  public CommandInclusionSubgraphResource(CedarConfig cedarConfig) {
+  public CommandInclusionSubgraphResource(CedarConfig cedarConfig,
+                                          InclusionSubgraphRegenerationManager jobManager) {
     super(cedarConfig);
-  }
-
-  public static void injectUserService(UserService us) {
-    userService = us;
+    this.jobManager = jobManager;
   }
 
   @POST
   @Timed
   @Path("/regenerate-inclusion-subgraph")
-  public Response regenerateRulesIndex() throws CedarException {
+  public Response regenerateInclusionSubgraph() throws CedarException {
     CedarRequestContext c = buildRequestContext();
     AdminCommand.REGENERATE_INCLUSION_SUBGRAPH.enforce(c);
 
-    ExecutorService executor = Executors.newSingleThreadExecutor();
-    executor.submit(() -> {
-      RegenerateInclusionSubgraphTask task = new RegenerateInclusionSubgraphTask(cedarConfig);
-      try {
-        CedarRequestContext cedarAdminRequestContext = CedarRequestContextFactory.fromAdminUser(cedarConfig, userService);
-        task.regenerateInclusionSubgraph(cedarAdminRequestContext);
-      } catch (CedarProcessingException e) {
-        //TODO: handle this, log it separately
-        log.error("Error in inclusion subgraph regeneration executor", e);
-      }
-    });
-    // shutdown() is orderly: the already-submitted task still runs to completion, then the single
-    // worker thread is released instead of leaking one per invocation.
-    executor.shutdown();
-
-    return Response.ok().build();
+    InclusionSubgraphRegenerationManager.StartResult result = jobManager.submit();
+    URI statusUri = URI.create("/command/regenerate-inclusion-subgraph/" + result.job().getId());
+    return result.accepted()
+        ? Response.accepted(result.job()).location(statusUri).build()
+        : Response.status(Response.Status.CONFLICT).entity(result.job()).location(statusUri).build();
   }
 
+  @GET
+  @Timed
+  @Path("/regenerate-inclusion-subgraph/{jobId}")
+  public Response regenerationStatus(@PathParam("jobId") String jobId) throws CedarException {
+    CedarRequestContext c = buildRequestContext();
+    AdminCommand.REGENERATE_INCLUSION_SUBGRAPH.enforce(c);
 
+    return jobManager.find(jobId)
+        .map(job -> Response.ok(job).build())
+        .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build());
+  }
 }

@@ -4,7 +4,7 @@ import io.dropwizard.hibernate.HibernateBundle;
 import io.dropwizard.hibernate.UnitOfWorkAwareProxyFactory;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
-import org.metadatacenter.cedar.util.dw.CedarDefaultHealthCheck;
+import org.metadatacenter.bridge.CedarDataServices;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
 import org.metadatacenter.cedar.worker.resources.IndexResource;
@@ -20,11 +20,18 @@ import org.metadatacenter.server.queue.util.PermissionQueueService;
 import org.metadatacenter.server.resource.CloneInstancesExecutorService;
 import org.metadatacenter.server.search.elasticsearch.service.NodeIndexingService;
 import org.metadatacenter.server.search.elasticsearch.service.NodeSearchingService;
+import org.metadatacenter.server.search.elasticsearch.service.ElasticsearchManagementService;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.metadatacenter.server.search.util.IndexUtils;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecutorService;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
-import org.metadatacenter.worker.*;
+import org.metadatacenter.worker.AppLoggerQueueProcessor;
+import org.metadatacenter.worker.CloneInstancesQueueProcessor;
+import org.metadatacenter.worker.PermissionQueueProcessor;
+import org.metadatacenter.worker.ValuerecommenderReindexQueueProcessor;
+
+import java.util.List;
+import java.util.Map;
 
 public class WorkerServerApplication extends CedarMicroserviceApplication<WorkerServerConfiguration> {
 
@@ -38,6 +45,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   private static AppLoggerExecutorService appLoggerExecutorService;
   private static ValuerecommenderReindexQueueService valuerecommenderQueueService;
   private static ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
+  private static InclusionSubgraphRegenerationManager inclusionSubgraphRegenerationManager;
 
   public static void main(String[] args) throws Exception {
     new WorkerServerApplication().run(args);
@@ -91,7 +99,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         valuerecommenderQueueService);
     valuerecommenderExecutorService.init(userService);
 
-    CommandInclusionSubgraphResource.injectUserService(userService);
+    inclusionSubgraphRegenerationManager = new InclusionSubgraphRegenerationManager(cedarConfig, userService);
   }
 
   @Override
@@ -100,10 +108,9 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     final IndexResource index = new IndexResource(cedarConfig);
     environment.jersey().register(index);
 
-    final CedarDefaultHealthCheck healthCheck = new CedarDefaultHealthCheck();
-    environment.healthChecks().register("message", healthCheck);
-
-    final CommandInclusionSubgraphResource commandInclusionsubgraph = new CommandInclusionSubgraphResource(cedarConfig);
+    environment.lifecycle().manage(inclusionSubgraphRegenerationManager);
+    final CommandInclusionSubgraphResource commandInclusionsubgraph =
+        new CommandInclusionSubgraphResource(cedarConfig, inclusionSubgraphRegenerationManager);
     environment.jersey().register(commandInclusionsubgraph);
 
     PermissionQueueProcessor searchPermissionProcessor = new PermissionQueueProcessor(permissionQueueService,
@@ -121,5 +128,22 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     ValuerecommenderReindexQueueProcessor valuerecommenderReindexQueueProcessor =
         new ValuerecommenderReindexQueueProcessor(valuerecommenderQueueService, valuerecommenderExecutorService);
     environment.lifecycle().manage(valuerecommenderReindexQueueProcessor);
+
+    ElasticsearchManagementService opensearch = new IndexUtils(cedarConfig).getEsManagementService();
+    environment.healthChecks().register("redis",
+        new WorkerDependencyHealthCheck("Redis", permissionQueueService::verifyConnectivity));
+    environment.healthChecks().register("opensearch",
+        new WorkerDependencyHealthCheck("OpenSearch", opensearch::verifyConnectivity));
+    environment.healthChecks().register("neo4j",
+        new WorkerDependencyHealthCheck("Neo4j",
+            CedarDataServices.getInstance().getProxies().folder()::verifyConnectivity));
+    environment.healthChecks().register("queue-consumers", new WorkerQueueConsumersHealthCheck(
+        List.of(searchPermissionProcessor, cloneInstancesQueueProcessor,
+            appLoggerQueueProcessor, valuerecommenderReindexQueueProcessor),
+        Map.of(
+            "search-permission", permissionQueueService::deadLetterCount,
+            "clone-instances", cloneInstancesQueueService::deadLetterCount,
+            "app-log", appLoggerQueueService::deadLetterCount,
+            "value-recommender", valuerecommenderQueueService::deadLetterCount)));
   }
 }

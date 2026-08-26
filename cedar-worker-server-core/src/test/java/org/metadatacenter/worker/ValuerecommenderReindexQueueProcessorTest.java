@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
@@ -150,5 +151,38 @@ class ValuerecommenderReindexQueueProcessorTest {
 
     assertTrue(batch.getValue().size() > 1,
         "a poll should deliver the batch it drained, not a single message: got " + batch.getValue().size());
+  }
+
+  @Test
+  void aPollClaimsNoMoreThanTheConfiguredBatchLimit() throws Exception {
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
+    for (int i = 0; i < ValuerecommenderReindexQueueProcessor.MAX_BATCH_SIZE + 5; i++) {
+      queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.INSTANCE,
+          ValuerecommenderReindexMessageActionType.UPDATED));
+    }
+    processor.start();
+
+    ArgumentCaptor<List<ValuerecommenderReindexMessage>> batch = listCaptor();
+    verify(executor, timeout(30_000)).handleMessages(batch.capture());
+
+    assertEquals(ValuerecommenderReindexQueueProcessor.MAX_BATCH_SIZE, batch.getValue().size());
+  }
+
+  @Test
+  void aFailedBatchIsRetriedThenDeadLetteredInsteadOfLost() throws Exception {
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
+    doThrow(new IllegalStateException("reindex failed")).when(executor).handleMessages(any());
+    queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.INSTANCE,
+        ValuerecommenderReindexMessageActionType.UPDATED));
+    processor.start();
+
+    verify(executor, timeout(30_000).times(3)).handleMessages(any());
+    long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+    while (queueService.deadLetterCount() != 1 && System.nanoTime() < deadline) {
+      Thread.sleep(10);
+    }
+
+    assertEquals(1, queueService.deadLetterCount());
+    assertEquals(0, queueService.inFlightCount());
   }
 }
