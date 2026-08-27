@@ -23,6 +23,7 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
 
   private final PermissionQueueService permissionQueueService;
   private final SearchPermissionExecutorService searchPermissionExecutorService;
+  private final long handlingRetryDelayMillis;
   // Written by the lifecycle thread in stop(), read by the processing thread in digestMessages():
   // must be volatile or the processing thread may never observe the stop and loop forever.
   private volatile boolean doProcessing;
@@ -34,8 +35,15 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
 
   public PermissionQueueProcessor(PermissionQueueService permissionQueueService,
                                   SearchPermissionExecutorService searchPermissionExecutorService) {
+    this(permissionQueueService, searchPermissionExecutorService, HANDLING_RETRY_DELAY_MILLIS);
+  }
+
+  PermissionQueueProcessor(PermissionQueueService permissionQueueService,
+                           SearchPermissionExecutorService searchPermissionExecutorService,
+                           long handlingRetryDelayMillis) {
     this.permissionQueueService = permissionQueueService;
     this.searchPermissionExecutorService = searchPermissionExecutorService;
+    this.handlingRetryDelayMillis = handlingRetryDelayMillis;
     doProcessing = true;
   }
 
@@ -139,7 +147,7 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
           return;
         }
         log.warn("There was an error while handling the message. Attempt " + attempt + " of "
-            + MAX_HANDLING_ATTEMPTS + ", retrying in " + HANDLING_RETRY_DELAY_MILLIS + " ms.", e);
+            + MAX_HANDLING_ATTEMPTS + ", retrying in " + handlingRetryDelayMillis + " ms.", e);
         if (!sleepBeforeRetry()) {
           return;
         }
@@ -153,7 +161,7 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
    */
   private boolean sleepBeforeRetry() {
     try {
-      Thread.sleep(HANDLING_RETRY_DELAY_MILLIS);
+      Thread.sleep(handlingRetryDelayMillis);
       return true;
     } catch (InterruptedException ie) {
       Thread.currentThread().interrupt();

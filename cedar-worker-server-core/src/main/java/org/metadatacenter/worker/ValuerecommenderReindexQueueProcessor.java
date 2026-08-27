@@ -33,12 +33,13 @@ public class ValuerecommenderReindexQueueProcessor implements Managed, QueueProc
 
   private static final Logger log = LoggerFactory.getLogger(ValuerecommenderReindexQueueProcessor.class);
 
-  private static final int POLL_INTERVAL_SECONDS = 5;
+  private static final long DEFAULT_POLL_INTERVAL_MILLIS = TimeUnit.SECONDS.toMillis(5);
   static final int MAX_BATCH_SIZE = 100;
   private static final int MAX_HANDLING_ATTEMPTS = 3;
 
   private final ValuerecommenderReindexQueueService valuerecommenderQueueService;
   private final ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
+  private final long pollIntervalMillis;
   private volatile boolean doProcessing;
   private ExecutorService executor;
   private Future<?> workerFuture;
@@ -49,8 +50,15 @@ public class ValuerecommenderReindexQueueProcessor implements Managed, QueueProc
 
   public ValuerecommenderReindexQueueProcessor(ValuerecommenderReindexQueueService valuerecommenderQueueService,
                                                ValuerecommenderReindexExecutorService valuerecommenderExecutorService) {
+    this(valuerecommenderQueueService, valuerecommenderExecutorService, DEFAULT_POLL_INTERVAL_MILLIS);
+  }
+
+  ValuerecommenderReindexQueueProcessor(ValuerecommenderReindexQueueService valuerecommenderQueueService,
+                                        ValuerecommenderReindexExecutorService valuerecommenderExecutorService,
+                                        long pollIntervalMillis) {
     this.valuerecommenderQueueService = valuerecommenderQueueService;
     this.valuerecommenderExecutorService = valuerecommenderExecutorService;
+    this.pollIntervalMillis = pollIntervalMillis;
     this.doProcessing = true;
   }
 
@@ -74,7 +82,7 @@ public class ValuerecommenderReindexQueueProcessor implements Managed, QueueProc
             + "the queue (Redis) became unreachable. Retrying on the next interval.", "failures", e);
       }
       try {
-        Thread.sleep(POLL_INTERVAL_SECONDS * 1000L);
+        Thread.sleep(pollIntervalMillis);
       } catch (InterruptedException ie) {
         Thread.currentThread().interrupt();
         return;

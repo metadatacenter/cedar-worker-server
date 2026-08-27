@@ -36,6 +36,7 @@ import static org.mockito.Mockito.verify;
 @Timeout(90)
 class ValuerecommenderReindexQueueProcessorTest {
 
+  private static final long TEST_POLL_INTERVAL_MILLIS = 10;
   private static final String TEMPLATE = "https://repo.metadatacenter.orgx/templates/t1";
   private static final String INSTANCE = "https://repo.metadatacenter.orgx/template-instances/i1";
 
@@ -47,7 +48,7 @@ class ValuerecommenderReindexQueueProcessorTest {
     redis = EmbeddedRedis.start();
     queueService = new ValuerecommenderReindexQueueService(QueueTestConfig.onPort(redis.port()));
     ValuerecommenderReindexExecutorService executor = mock(ValuerecommenderReindexExecutorService.class);
-    processor = new ValuerecommenderReindexQueueProcessor(queueService, executor);
+    processor = new ValuerecommenderReindexQueueProcessor(queueService, executor, TEST_POLL_INTERVAL_MILLIS);
     return executor;
   }
 
@@ -99,18 +100,23 @@ class ValuerecommenderReindexQueueProcessorTest {
    */
   @Test
   void aCreatedOrDeletedTemplateIsDropped() throws Exception {
-    ValuerecommenderReindexExecutorService executor = startProcessor();
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
 
     queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.TEMPLATE,
         ValuerecommenderReindexMessageActionType.CREATED));
     queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.TEMPLATE,
         ValuerecommenderReindexMessageActionType.DELETED));
+    processor.start();
 
-    // Long enough for several poll intervals to pass
-    Thread.sleep(15_000);
+    long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+    while ((queueService.messageCount() != 0 || queueService.inFlightCount() != 0)
+        && System.nanoTime() < deadline) {
+      Thread.sleep(10);
+    }
     verify(executor, never()).handleMessages(any());
 
-    assertEquals(0, queueService.messageCount(), "the messages were still drained, just not forwarded");
+    assertEquals(0, queueService.messageCount(), "the messages should be drained from the pending queue");
+    assertEquals(0, queueService.inFlightCount(), "filtered messages should be acknowledged");
   }
 
   /** An instance is relevant whatever happened to it, so no action type is filtered out. */
