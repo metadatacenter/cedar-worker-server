@@ -4,6 +4,7 @@ import io.dropwizard.lifecycle.Managed;
 import org.metadatacenter.server.queue.util.CloneInstancesQueueService;
 import org.metadatacenter.server.queue.util.RepeatedFailureLogger;
 import org.metadatacenter.server.resource.CloneInstancesExecutorService;
+import org.metadatacenter.server.resource.CloneInstancesNotRetryableException;
 import org.metadatacenter.server.resource.CloneInstancesQueueEvent;
 import org.metadatacenter.util.json.JsonMapper;
 import org.slf4j.Logger;
@@ -138,6 +139,15 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
         return;
       } catch (Exception e) {
         markFailure();
+        // Cloning is not idempotent, and the executor says so when a re-run would duplicate what
+        // already succeeded (or repeat per-instance failures no retry can fix). Such an event goes
+        // straight to the dead-letter queue.
+        if (e instanceof CloneInstancesNotRetryableException) {
+          log.error("The clone-instances event is not retried: re-running it would duplicate the "
+              + "part of the clone that succeeded.");
+          deadLetter(rawMessage, e);
+          return;
+        }
         if (attempt == MAX_HANDLING_ATTEMPTS) {
           deadLetter(rawMessage, e);
           return;
