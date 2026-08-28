@@ -122,20 +122,25 @@ class ValuerecommenderReindexQueueProcessorTest {
   /** An instance is relevant whatever happened to it, so no action type is filtered out. */
   @Test
   void instanceMessagesSurviveEveryActionType() throws Exception {
-    ValuerecommenderReindexExecutorService executor = startProcessor();
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
 
     queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.INSTANCE,
         ValuerecommenderReindexMessageActionType.CREATED));
     queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.INSTANCE,
         ValuerecommenderReindexMessageActionType.DELETED));
+    processor.start();
 
     ArgumentCaptor<List<ValuerecommenderReindexMessage>> batch = listCaptor();
     verify(executor, timeout(30_000)).handleMessages(batch.capture());
 
-    assertTrue(batch.getValue().size() >= 1, "instance messages should not be filtered");
-    assertTrue(batch.getAllValues().stream().flatMap(List::stream)
-            .allMatch(m -> m.getResourceType() == ValuerecommenderReindexMessageResourceType.INSTANCE),
+    assertEquals(2, batch.getValue().size(), "instance messages should not be filtered");
+    assertTrue(batch.getValue().stream()
+        .allMatch(m -> m.getResourceType() == ValuerecommenderReindexMessageResourceType.INSTANCE),
         "only instance messages were enqueued");
+    assertTrue(batch.getValue().stream()
+        .anyMatch(m -> m.getActionType() == ValuerecommenderReindexMessageActionType.CREATED));
+    assertTrue(batch.getValue().stream()
+        .anyMatch(m -> m.getActionType() == ValuerecommenderReindexMessageActionType.DELETED));
   }
 
   /**
