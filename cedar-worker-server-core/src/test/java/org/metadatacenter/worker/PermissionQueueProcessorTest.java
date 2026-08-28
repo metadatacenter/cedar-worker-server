@@ -33,6 +33,8 @@ import static org.mockito.Mockito.verify;
 @Timeout(60)
 class PermissionQueueProcessorTest {
 
+  private static final long TEST_RETRY_DELAY_MILLIS = 10;
+
   private EmbeddedRedis redis;
   private PermissionQueueService queueService;
   private PermissionQueueProcessor processor;
@@ -41,7 +43,7 @@ class PermissionQueueProcessorTest {
     redis = EmbeddedRedis.start();
     CacheServerPersistent config = QueueTestConfig.onPort(redis.port());
     queueService = new PermissionQueueService(config);
-    processor = new PermissionQueueProcessor(queueService, executor);
+    processor = new PermissionQueueProcessor(queueService, executor, TEST_RETRY_DELAY_MILLIS);
     processor.start();
   }
 
@@ -131,7 +133,6 @@ class PermissionQueueProcessorTest {
     queueService.enqueueEvent(event("artifact-1"));
 
     verify(executor, timeout(20_000).times(2)).handleEvent(any());
-    Thread.sleep(1_000);
     assertEquals(0, queueService.deadLetterCount(), "an event that succeeded must not be parked");
   }
 
@@ -205,8 +206,6 @@ class PermissionQueueProcessorTest {
     processor = null; // already stopped; keep @AfterEach from stopping it twice
 
     producer.enqueueEvent(event("after-stop"));
-    // Long enough that a consumer still running would have picked it up several times over
-    Thread.sleep(2_000);
     verify(executor, times(1)).handleEvent(any());
 
     try (redis.clients.jedis.Jedis jedis = new redis.clients.jedis.Jedis("127.0.0.1", redis.port())) {

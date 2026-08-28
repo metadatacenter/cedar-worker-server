@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.verify;
 @Timeout(90)
 class ValuerecommenderReindexQueueProcessorTest {
 
+  private static final long TEST_POLL_INTERVAL_MILLIS = 10;
   private static final String TEMPLATE = "https://repo.metadatacenter.orgx/templates/t1";
   private static final String INSTANCE = "https://repo.metadatacenter.orgx/template-instances/i1";
 
@@ -46,7 +48,7 @@ class ValuerecommenderReindexQueueProcessorTest {
     redis = EmbeddedRedis.start();
     queueService = new ValuerecommenderReindexQueueService(QueueTestConfig.onPort(redis.port()));
     ValuerecommenderReindexExecutorService executor = mock(ValuerecommenderReindexExecutorService.class);
-    processor = new ValuerecommenderReindexQueueProcessor(queueService, executor);
+    processor = new ValuerecommenderReindexQueueProcessor(queueService, executor, TEST_POLL_INTERVAL_MILLIS);
     return executor;
   }
 
@@ -98,37 +100,47 @@ class ValuerecommenderReindexQueueProcessorTest {
    */
   @Test
   void aCreatedOrDeletedTemplateIsDropped() throws Exception {
-    ValuerecommenderReindexExecutorService executor = startProcessor();
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
 
     queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.TEMPLATE,
         ValuerecommenderReindexMessageActionType.CREATED));
     queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.TEMPLATE,
         ValuerecommenderReindexMessageActionType.DELETED));
+    processor.start();
 
-    // Long enough for several poll intervals to pass
-    Thread.sleep(15_000);
+    long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+    while ((queueService.messageCount() != 0 || queueService.inFlightCount() != 0)
+        && System.nanoTime() < deadline) {
+      Thread.sleep(10);
+    }
     verify(executor, never()).handleMessages(any());
 
-    assertEquals(0, queueService.messageCount(), "the messages were still drained, just not forwarded");
+    assertEquals(0, queueService.messageCount(), "the messages should be drained from the pending queue");
+    assertEquals(0, queueService.inFlightCount(), "filtered messages should be acknowledged");
   }
 
   /** An instance is relevant whatever happened to it, so no action type is filtered out. */
   @Test
   void instanceMessagesSurviveEveryActionType() throws Exception {
-    ValuerecommenderReindexExecutorService executor = startProcessor();
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
 
     queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.INSTANCE,
         ValuerecommenderReindexMessageActionType.CREATED));
     queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.INSTANCE,
         ValuerecommenderReindexMessageActionType.DELETED));
+    processor.start();
 
     ArgumentCaptor<List<ValuerecommenderReindexMessage>> batch = listCaptor();
     verify(executor, timeout(30_000)).handleMessages(batch.capture());
 
-    assertTrue(batch.getValue().size() >= 1, "instance messages should not be filtered");
-    assertTrue(batch.getAllValues().stream().flatMap(List::stream)
-            .allMatch(m -> m.getResourceType() == ValuerecommenderReindexMessageResourceType.INSTANCE),
+    assertEquals(2, batch.getValue().size(), "instance messages should not be filtered");
+    assertTrue(batch.getValue().stream()
+        .allMatch(m -> m.getResourceType() == ValuerecommenderReindexMessageResourceType.INSTANCE),
         "only instance messages were enqueued");
+    assertTrue(batch.getValue().stream()
+        .anyMatch(m -> m.getActionType() == ValuerecommenderReindexMessageActionType.CREATED));
+    assertTrue(batch.getValue().stream()
+        .anyMatch(m -> m.getActionType() == ValuerecommenderReindexMessageActionType.DELETED));
   }
 
   /**
@@ -150,5 +162,38 @@ class ValuerecommenderReindexQueueProcessorTest {
 
     assertTrue(batch.getValue().size() > 1,
         "a poll should deliver the batch it drained, not a single message: got " + batch.getValue().size());
+  }
+
+  @Test
+  void aPollClaimsNoMoreThanTheConfiguredBatchLimit() throws Exception {
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
+    for (int i = 0; i < ValuerecommenderReindexQueueProcessor.MAX_BATCH_SIZE + 5; i++) {
+      queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.INSTANCE,
+          ValuerecommenderReindexMessageActionType.UPDATED));
+    }
+    processor.start();
+
+    ArgumentCaptor<List<ValuerecommenderReindexMessage>> batch = listCaptor();
+    verify(executor, timeout(30_000)).handleMessages(batch.capture());
+
+    assertEquals(ValuerecommenderReindexQueueProcessor.MAX_BATCH_SIZE, batch.getValue().size());
+  }
+
+  @Test
+  void aFailedBatchIsRetriedThenDeadLetteredInsteadOfLost() throws Exception {
+    ValuerecommenderReindexExecutorService executor = prepareProcessor();
+    doThrow(new IllegalStateException("reindex failed")).when(executor).handleMessages(any());
+    queueService.enqueueEvent(message(ValuerecommenderReindexMessageResourceType.INSTANCE,
+        ValuerecommenderReindexMessageActionType.UPDATED));
+    processor.start();
+
+    verify(executor, timeout(30_000).times(3)).handleMessages(any());
+    long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+    while (queueService.deadLetterCount() != 1 && System.nanoTime() < deadline) {
+      Thread.sleep(10);
+    }
+
+    assertEquals(1, queueService.deadLetterCount());
+    assertEquals(0, queueService.inFlightCount());
   }
 }

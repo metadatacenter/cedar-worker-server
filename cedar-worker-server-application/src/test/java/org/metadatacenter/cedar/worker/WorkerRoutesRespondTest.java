@@ -7,16 +7,16 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
 import org.metadatacenter.config.environment.CedarEnvironmentSource;
+import org.metadatacenter.cedar.util.dw.CedarServerInsightReportResource;
 import org.metadatacenter.util.test.RouteSurface;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Route safety net: probes every endpoint the worker command resource declares, unauthenticated,
- * and requires each to answer 401. A 404/405 means the route vanished or changed verb; any other
- * status means an endpoint lost its authentication assertion. No fixtures and no backend are
- * involved.
+ * Route safety net: probes every worker command and shared diagnostic endpoint unauthenticated and
+ * requires each to answer 401. A 404/405 means the route vanished or changed verb; any other status
+ * means an endpoint lost its authentication assertion. No fixtures and no backend are involved.
  */
 public class WorkerRoutesRespondTest {
 
@@ -49,7 +49,9 @@ public class WorkerRoutesRespondTest {
   public void everyRouteRejectsAnUnauthenticatedRequest() {
     RouteSurface.assertEveryRouteAnswers(
         "http://localhost:" + SERVER.getLocalPort(),
-        RouteSurface.endpoints(CommandInclusionSubgraphResource.class),
+        RouteSurface.endpoints(
+            CommandInclusionSubgraphResource.class,
+            CedarServerInsightReportResource.class),
         401);
   }
 
