@@ -22,12 +22,12 @@ public class WorkerRoutesRespondTest {
 
   static {
     // Must run before the test support boots the server, which reads the port env vars. Ports are
-    // distinct from the dev server and from every other booting test class. Redis goes to a dead
+    // assigned by the OS, so they cannot collide with the dev server or another test. Redis goes to a dead
     // port: the worker's queue writes are best-effort, so no live Redis is needed to boot.
     Map<String, String> environment = new HashMap<>(CedarEnvironmentSource.getAll());
-    environment.put("CEDAR_WORKER_HTTP_PORT", "19025");
-    environment.put("CEDAR_WORKER_ADMIN_PORT", "19125");
-    environment.put("CEDAR_WORKER_STOP_PORT", "19225");
+    environment.put("CEDAR_WORKER_HTTP_PORT", "0");
+    environment.put("CEDAR_WORKER_ADMIN_PORT", "0");
+    environment.put("CEDAR_WORKER_STOP_PORT", "0");
     environment.put("CEDAR_REDIS_PERSISTENT_PORT", "1");
     CedarEnvironmentSource.setOverride(environment);
   }
