@@ -136,7 +136,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         new WorkerDependencyHealthCheck("OpenSearch", opensearch::verifyConnectivity));
     environment.healthChecks().register("neo4j",
         new WorkerDependencyHealthCheck("Neo4j",
-            CedarDataServices.getInstance().getProxies().folder()::verifyConnectivity));
+            CedarDataServices.getInstance().getProxies()::verifyConnectivity));
     environment.healthChecks().register("queue-consumers", new WorkerQueueConsumersHealthCheck(
         List.of(searchPermissionProcessor, cloneInstancesQueueProcessor,
             appLoggerQueueProcessor, valuerecommenderReindexQueueProcessor),
