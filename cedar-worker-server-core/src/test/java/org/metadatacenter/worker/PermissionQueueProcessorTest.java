@@ -115,8 +115,13 @@ class PermissionQueueProcessorTest {
     queueService.enqueueEvent(event("after-the-poison"));
 
     // Named rather than counted: the retries of the poisonous event are themselves invocations, so
-    // a count would be satisfied without the second event ever being reached
-    verify(executor, timeout(9_000)).handleEvent(argThat(e -> "after-the-poison".equals(e.getId())));
+    // a count would be satisfied without the second event ever being reached. It has to be
+    // atLeastOnce for the same reason read the other way — this executor throws on every event, so
+    // the second one is retried too, and a bare verify() means times(1), which fails as soon as its
+    // poll lands after the second and third attempts rather than between them. That made the test
+    // pass or fail on how loaded the machine was.
+    verify(executor, timeout(9_000).atLeastOnce())
+        .handleEvent(argThat(e -> "after-the-poison".equals(e.getId())));
   }
 
   /**
