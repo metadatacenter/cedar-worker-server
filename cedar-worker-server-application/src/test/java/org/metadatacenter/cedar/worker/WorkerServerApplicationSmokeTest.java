@@ -62,8 +62,8 @@ public class WorkerServerApplicationSmokeTest {
         .GET()
         .build();
     HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-    Assertions.assertEquals(200, response.statusCode());
-    Assertions.assertTrue(response.body().contains("name"));
+    Assertions.assertEquals(200, response.statusCode(), response.body());
+    Assertions.assertTrue(response.body().contains("name"), response.body());
   }
 
 }

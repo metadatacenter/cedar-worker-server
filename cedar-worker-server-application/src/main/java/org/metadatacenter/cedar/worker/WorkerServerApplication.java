@@ -1,11 +1,11 @@
 package org.metadatacenter.cedar.worker;
 
-import io.dropwizard.hibernate.HibernateBundle;
 import io.dropwizard.hibernate.UnitOfWorkAwareProxyFactory;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
 import org.metadatacenter.bridge.CedarDataServices;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceIndexResource;
+import org.metadatacenter.cedar.util.dw.CedarHibernateBundle;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
 import org.metadatacenter.config.CedarConfig;
@@ -35,7 +35,7 @@ import java.util.Map;
 
 public class WorkerServerApplication extends CedarMicroserviceApplication<WorkerServerConfiguration> {
 
-  private HibernateBundle<WorkerServerConfiguration> hibernate;
+  private CedarHibernateBundle<WorkerServerConfiguration> hibernate;
   private ApplicationRequestLogDAO requestLogDAO;
   private ApplicationCypherLogDAO cypherLogDAO;
   private static PermissionQueueService permissionQueueService;
@@ -58,8 +58,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
 
   @Override
   protected void initializeWithBootstrap(Bootstrap<WorkerServerConfiguration> bootstrap, CedarConfig cedarConfig) {
-    hibernate = new CedarWorkerHibernateBundle(
-        cedarConfig,
+    hibernate = new CedarHibernateBundle<>(
+        cedarConfig.getDBLoggingConfig(),
         ApplicationRequestLog.class, new Class[]{
         ApplicationCypherLog.class,
     }
