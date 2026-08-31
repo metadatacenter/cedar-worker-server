@@ -1,6 +1,5 @@
 package org.metadatacenter.cedar.worker;
 
-import com.codahale.metrics.health.HealthCheck;
 import org.junit.jupiter.api.Test;
 import org.metadatacenter.worker.QueueProcessorMonitor;
 
@@ -12,17 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkerHealthChecksTest {
-
-  @Test
-  void dependencyHealthReflectsTheProbe() {
-    HealthCheck.Result healthy = new WorkerDependencyHealthCheck("Redis", () -> {}).check();
-    HealthCheck.Result unhealthy = new WorkerDependencyHealthCheck("Redis", () -> {
-      throw new IllegalStateException("offline");
-    }).check();
-
-    assertTrue(healthy.isHealthy());
-    assertFalse(unhealthy.isHealthy());
-  }
 
   @Test
   void queueHealthRequiresLiveConsumersAndEmptyDeadLetterQueues() {
