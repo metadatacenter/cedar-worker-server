@@ -1,13 +1,13 @@
 package org.metadatacenter.cedar.worker;
 
-import io.dropwizard.hibernate.HibernateBundle;
 import io.dropwizard.hibernate.UnitOfWorkAwareProxyFactory;
 import io.dropwizard.core.setup.Bootstrap;
 import io.dropwizard.core.setup.Environment;
-import org.metadatacenter.bridge.CedarDataServices;
+import org.metadatacenter.cedar.util.dw.CedarMicroserviceIndexResource;
+import org.metadatacenter.cedar.util.dw.CedarHibernateBundle;
+import org.metadatacenter.cedar.util.dw.CedarDependencyHealthCheck;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
-import org.metadatacenter.cedar.worker.resources.IndexResource;
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.model.ServerName;
 import org.metadatacenter.server.logging.AppLoggerExecutorService;
@@ -35,7 +35,7 @@ import java.util.Map;
 
 public class WorkerServerApplication extends CedarMicroserviceApplication<WorkerServerConfiguration> {
 
-  private HibernateBundle<WorkerServerConfiguration> hibernate;
+  private CedarHibernateBundle<WorkerServerConfiguration> hibernate;
   private ApplicationRequestLogDAO requestLogDAO;
   private ApplicationCypherLogDAO cypherLogDAO;
   private static PermissionQueueService permissionQueueService;
@@ -58,8 +58,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
 
   @Override
   protected void initializeWithBootstrap(Bootstrap<WorkerServerConfiguration> bootstrap, CedarConfig cedarConfig) {
-    hibernate = new CedarWorkerHibernateBundle(
-        cedarConfig,
+    hibernate = new CedarHibernateBundle<>(
+        cedarConfig.getDBLoggingConfig(),
         ApplicationRequestLog.class, new Class[]{
         ApplicationCypherLog.class,
     }
@@ -105,7 +105,8 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   @Override
   public void runApp(WorkerServerConfiguration configuration, Environment environment) {
 
-    final IndexResource index = new IndexResource(cedarConfig);
+    final CedarMicroserviceIndexResource index =
+        new CedarMicroserviceIndexResource(cedarConfig, getServerName());
     environment.jersey().register(index);
 
     environment.lifecycle().manage(inclusionSubgraphRegenerationManager);
@@ -129,14 +130,14 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         new ValuerecommenderReindexQueueProcessor(valuerecommenderQueueService, valuerecommenderExecutorService);
     environment.lifecycle().manage(valuerecommenderReindexQueueProcessor);
 
+    // Neo4j is probed for every microservice by the shared bootstrap. The two below are this
+    // server's own: it consumes the Redis queues and writes the OpenSearch indexes, so it has
+    // nothing left to do when either is gone.
     ElasticsearchManagementService opensearch = new IndexUtils(cedarConfig).getEsManagementService();
     environment.healthChecks().register("redis",
-        new WorkerDependencyHealthCheck("Redis", permissionQueueService::verifyConnectivity));
+        CedarDependencyHealthCheck.gating("Redis", permissionQueueService::verifyConnectivity));
     environment.healthChecks().register("opensearch",
-        new WorkerDependencyHealthCheck("OpenSearch", opensearch::verifyConnectivity));
-    environment.healthChecks().register("neo4j",
-        new WorkerDependencyHealthCheck("Neo4j",
-            CedarDataServices.getInstance().getProxies().folder()::verifyConnectivity));
+        CedarDependencyHealthCheck.gating("OpenSearch", opensearch::verifyConnectivity));
     environment.healthChecks().register("queue-consumers", new WorkerQueueConsumersHealthCheck(
         List.of(searchPermissionProcessor, cloneInstancesQueueProcessor,
             appLoggerQueueProcessor, valuerecommenderReindexQueueProcessor),

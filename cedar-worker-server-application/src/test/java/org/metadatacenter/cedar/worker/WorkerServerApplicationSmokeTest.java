@@ -30,12 +30,12 @@ public class WorkerServerApplicationSmokeTest {
     // The application log store comes from an in-process MariaDB; the MySQL redirection must
     // precede the Neo4j seeding, which builds the CedarConfig singleton. Redis goes to a dead
     // port: queue writes are best-effort, the consumers take their first contact on background
-    // threads, and the polling services borrow a connection per poll. Alternate server ports,
+    // threads, and the polling services borrow a connection per poll. OS-assigned server ports,
     // so the test instance never collides with a running dev server.
     EmbeddedCedarMySql.startAndRedirectEnvironment("CEDAR_LOG_MYSQL", Map.of(
-        "CEDAR_WORKER_HTTP_PORT", "19011",
-        "CEDAR_WORKER_ADMIN_PORT", "19111",
-        "CEDAR_WORKER_STOP_PORT", "19211",
+        "CEDAR_WORKER_HTTP_PORT", "0",
+        "CEDAR_WORKER_ADMIN_PORT", "0",
+        "CEDAR_WORKER_STOP_PORT", "0",
         "CEDAR_REDIS_PERSISTENT_PORT", "1"));
     EmbeddedCedarNeo4j.startRedirectAndSeed(SystemComponent.SERVER_WORKER);
   }
@@ -62,8 +62,8 @@ public class WorkerServerApplicationSmokeTest {
         .GET()
         .build();
     HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-    Assertions.assertEquals(200, response.statusCode());
-    Assertions.assertTrue(response.body().contains("name"));
+    Assertions.assertEquals(200, response.statusCode(), response.body());
+    Assertions.assertTrue(response.body().contains("name"), response.body());
   }
 
 }

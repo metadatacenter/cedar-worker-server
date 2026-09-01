@@ -1,0 +1,21 @@
+# Base OpenAPI document merged into the generated spec by io.swagger.core.v3:swagger-maven-plugin.
+# It seeds the info block (version stamped from the POM via resource filtering) and the api_key
+# security scheme that every resource class references with @SecurityRequirement(name = "api_key").
+openapi: 3.0.1
+info:
+  title: CEDAR Worker Server API
+  description: |
+    Better Metadata - Better Science
+
+    The worker server runs the background jobs the rest of CEDAR cannot do inside a request: work
+    that takes longer than a caller should wait, and that must survive being interrupted.
+    
+    Its endpoints start a job and report on one. They are restricted to administrators.
+  version: ${project.version}
+components:
+  securitySchemes:
+    api_key:
+      type: apiKey
+      name: Authorization
+      in: header
+      description: "Your CEDAR API key, using the format 'apiKey <yourApiKey>'"

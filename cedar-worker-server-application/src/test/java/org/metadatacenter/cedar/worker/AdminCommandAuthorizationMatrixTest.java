@@ -33,15 +33,15 @@ import static org.metadatacenter.util.test.PermissionMatrix.Actor.OWNER;
  * <p>The worker resolves the admin user and opens graph sessions at startup, so — like the worker smoke
  * test — an in-process MariaDB (log store) and Neo4j are seeded before the test support boots. The
  * seeded graph also resolves the two test users at request time, which is what makes the 403 assertions
- * meaningful. Ports are alternate so the test never collides with a running dev worker.
+ * meaningful. Ports are OS-assigned so the test never collides with a running dev worker.
  */
 public class AdminCommandAuthorizationMatrixTest {
 
   static {
     EmbeddedCedarMySql.startAndRedirectEnvironment("CEDAR_LOG_MYSQL", Map.of(
-        "CEDAR_WORKER_HTTP_PORT", "19075",
-        "CEDAR_WORKER_ADMIN_PORT", "19175",
-        "CEDAR_WORKER_STOP_PORT", "19275",
+        "CEDAR_WORKER_HTTP_PORT", "0",
+        "CEDAR_WORKER_ADMIN_PORT", "0",
+        "CEDAR_WORKER_STOP_PORT", "0",
         "CEDAR_REDIS_PERSISTENT_PORT", "1"));
     EmbeddedCedarNeo4j.startRedirectAndSeed(SystemComponent.SERVER_WORKER);
   }
