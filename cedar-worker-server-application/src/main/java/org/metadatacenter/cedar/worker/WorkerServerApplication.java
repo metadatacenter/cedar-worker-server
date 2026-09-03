@@ -37,6 +37,9 @@ import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecuto
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
 import org.metadatacenter.worker.AppLoggerQueueProcessor;
 import org.metadatacenter.worker.CloneInstancesQueueProcessor;
+import org.metadatacenter.worker.HistoricalBackfillJob;
+import org.metadatacenter.worker.LiveAggregatorJob;
+import org.metadatacenter.worker.LogPruneJob;
 import org.metadatacenter.worker.PermissionQueueProcessor;
 import org.metadatacenter.worker.ValuerecommenderReindexQueueProcessor;
 
