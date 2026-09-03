@@ -1,5 +1,6 @@
 package org.metadatacenter.worker;
 
+import org.metadatacenter.config.environment.CedarEnvironmentVariable;
 import io.dropwizard.lifecycle.Managed;
 import org.metadatacenter.server.logging.agg.LogAggregationService;
 import org.slf4j.Logger;
@@ -33,11 +34,11 @@ public class LogPruneJob implements Managed {
 
   public LogPruneJob(LogAggregationService service) {
     this.service = service;
-    this.enabled = Boolean.parseBoolean(env("CEDAR_LOG_PRUNE_ENABLED", "false"));
-    this.retentionDays = parseIntSafe(env("CEDAR_LOG_PRUNE_RETENTION_DAYS", "30"), 30);
-    this.batchSize = parseIntSafe(env("CEDAR_LOG_PRUNE_BATCH", "2000"), 2000);
-    this.pauseMs = parseLongSafe(env("CEDAR_LOG_PRUNE_PAUSE_MS", "500"), 500L);
-    this.idleMs = parseLongSafe(env("CEDAR_LOG_PRUNE_IDLE_MS", "3600000"), 3_600_000L);
+    this.enabled = Boolean.parseBoolean(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_PRUNE_ENABLED, "false"));
+    this.retentionDays = parseIntSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_PRUNE_RETENTION_DAYS, "30"), 30);
+    this.batchSize = parseIntSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_PRUNE_BATCH, "2000"), 2000);
+    this.pauseMs = parseLongSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_PRUNE_PAUSE_MS, "500"), 500L);
+    this.idleMs = parseLongSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_PRUNE_IDLE_MS, "3600000"), 3_600_000L);
   }
 
   @Override
@@ -92,10 +93,6 @@ public class LogPruneJob implements Managed {
     }
   }
 
-  private static String env(String key, String dflt) {
-    String v = System.getenv(key);
-    return (v == null || v.isEmpty()) ? dflt : v;
-  }
 
   private static int parseIntSafe(String s, int dflt) {
     try {

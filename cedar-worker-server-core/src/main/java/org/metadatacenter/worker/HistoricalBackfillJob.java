@@ -1,5 +1,6 @@
 package org.metadatacenter.worker;
 
+import org.metadatacenter.config.environment.CedarEnvironmentVariable;
 import io.dropwizard.lifecycle.Managed;
 import org.metadatacenter.server.logging.agg.LogAggregationService;
 import org.slf4j.Logger;
@@ -39,10 +40,10 @@ public class HistoricalBackfillJob implements Managed {
 
   public HistoricalBackfillJob(LogAggregationService service) {
     this.service = service;
-    this.enabled = Boolean.parseBoolean(env("CEDAR_LOG_BACKFILL_ENABLED", "false"));
-    this.batchSize = parseIntSafe(env("CEDAR_LOG_BACKFILL_BATCH", "5000"), 5000);
-    this.pauseMs = parseLongSafe(env("CEDAR_LOG_BACKFILL_PAUSE_MS", "500"), 500L);
-    int[] w = parseWindow(env("CEDAR_LOG_BACKFILL_WINDOW_UTC", "2-6"));
+    this.enabled = Boolean.parseBoolean(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_BACKFILL_ENABLED, "false"));
+    this.batchSize = parseIntSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_BACKFILL_BATCH, "5000"), 5000);
+    this.pauseMs = parseLongSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_BACKFILL_PAUSE_MS, "500"), 500L);
+    int[] w = parseWindow(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_BACKFILL_WINDOW_UTC, "2-6"));
     this.windowStartHourUtc = w[0];
     this.windowEndHourUtc = w[1];
   }
@@ -127,10 +128,6 @@ public class HistoricalBackfillJob implements Managed {
     }
   }
 
-  private static String env(String key, String dflt) {
-    String v = System.getenv(key);
-    return (v == null || v.isEmpty()) ? dflt : v;
-  }
 
   private static int[] parseWindow(String spec) {
     try {

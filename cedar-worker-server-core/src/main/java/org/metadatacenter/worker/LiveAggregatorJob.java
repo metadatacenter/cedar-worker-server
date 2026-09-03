@@ -1,5 +1,6 @@
 package org.metadatacenter.worker;
 
+import org.metadatacenter.config.environment.CedarEnvironmentVariable;
 import io.dropwizard.lifecycle.Managed;
 import org.metadatacenter.server.logging.agg.LogAggregationService;
 import org.slf4j.Logger;
@@ -35,11 +36,11 @@ public class LiveAggregatorJob implements Managed {
 
   public LiveAggregatorJob(LogAggregationService service) {
     this.service = service;
-    this.enabled = Boolean.parseBoolean(env("CEDAR_LOG_LIVE_AGG_ENABLED", "false"));
-    this.batchSize = parseIntSafe(env("CEDAR_LOG_LIVE_AGG_BATCH", "2000"), 2000);
-    this.pauseMs = parseLongSafe(env("CEDAR_LOG_LIVE_AGG_PAUSE_MS", "200"), 200L);
-    this.pollIntervalMs = parseLongSafe(env("CEDAR_LOG_LIVE_AGG_POLL_MS", "900000"), 900_000L);
-    this.settleMarginHours = parseIntSafe(env("CEDAR_LOG_LIVE_AGG_MARGIN_HOURS", "3"), 3);
+    this.enabled = Boolean.parseBoolean(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_LIVE_AGG_ENABLED, "false"));
+    this.batchSize = parseIntSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_LIVE_AGG_BATCH, "2000"), 2000);
+    this.pauseMs = parseLongSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_LIVE_AGG_PAUSE_MS, "200"), 200L);
+    this.pollIntervalMs = parseLongSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_LIVE_AGG_POLL_MS, "900000"), 900_000L);
+    this.settleMarginHours = parseIntSafe(JobEnvironment.read(CedarEnvironmentVariable.CEDAR_LOG_LIVE_AGG_MARGIN_HOURS, "3"), 3);
   }
 
   @Override
@@ -131,10 +132,6 @@ public class LiveAggregatorJob implements Managed {
     }
   }
 
-  private static String env(String key, String dflt) {
-    String v = System.getenv(key);
-    return (v == null || v.isEmpty()) ? dflt : v;
-  }
 
   private static int parseIntSafe(String s, int dflt) {
     try {
