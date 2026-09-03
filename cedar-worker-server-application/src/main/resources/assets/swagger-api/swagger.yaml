@@ -20,6 +20,10 @@ paths:
       operationId: regenerateInclusionSubgraph
       responses:
         "202":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InclusionSubgraphJob"
           description: A job was started
           headers:
             Location:
@@ -32,6 +36,10 @@ paths:
         "403":
           description: The caller is not an administrator
         "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InclusionSubgraphJob"
           description: "A regeneration is already running; the job returned is that\
             \ one, not a new one"
           headers:
@@ -62,6 +70,10 @@ paths:
           type: string
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InclusionSubgraphJob"
           description: The job and its current state
         "401":
           description: Unauthorized
@@ -77,6 +89,39 @@ paths:
       tags:
       - Inclusion subgraph
 components:
+  schemas:
+    InclusionSubgraphJob:
+      type: object
+      additionalProperties: false
+      properties:
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        id:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum:
+          - QUEUED
+          - RUNNING
+          - SUCCEEDED
+          - FAILED
+        submittedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - status
+      - submittedAt
   securitySchemes:
     api_key:
       description: "Your CEDAR API key, using the format 'apiKey <yourApiKey>'"
