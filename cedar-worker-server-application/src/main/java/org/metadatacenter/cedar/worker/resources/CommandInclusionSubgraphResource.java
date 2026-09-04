@@ -4,6 +4,7 @@ import com.codahale.metrics.annotation.Timed;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -49,10 +50,12 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
           + "to administrators.")
   @ApiResponses({
       @ApiResponse(responseCode = "202", description = "A job was started",
+          content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob")),
           headers = @Header(name = "Location", description = "Where to poll this job's status.",
               schema = @Schema(type = "string"))),
       @ApiResponse(responseCode = "409",
           description = "A regeneration is already running; the job returned is that one, not a new one",
+          content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob")),
           headers = @Header(name = "Location", description = "Where to poll the running job's status.",
               schema = @Schema(type = "string"))),
       @ApiResponse(responseCode = "401", description = "Unauthorized"),
@@ -77,7 +80,8 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
       description = "Report where a regeneration job has got to. Jobs are held in memory, so an "
           + "identifier from before the last restart is no longer known. Restricted to administrators.")
   @ApiResponses({
-      @ApiResponse(responseCode = "200", description = "The job and its current state"),
+      @ApiResponse(responseCode = "200", description = "The job and its current state",
+          content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob"))),
       @ApiResponse(responseCode = "401", description = "Unauthorized"),
       @ApiResponse(responseCode = "403", description = "The caller is not an administrator"),
       @ApiResponse(responseCode = "404", description = "No job answers to this identifier"),

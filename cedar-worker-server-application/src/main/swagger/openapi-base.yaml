@@ -13,6 +13,35 @@ info:
     Its endpoints start a job and report on one. They are restricted to administrators.
   version: ${project.version}
 components:
+  schemas:
+    InclusionSubgraphJob:
+      type: object
+      required:
+        - id
+        - submittedAt
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        submittedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [QUEUED, RUNNING, SUCCEEDED, FAILED]
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        error:
+          type: string
+          nullable: true
+      additionalProperties: false
   securitySchemes:
     api_key:
       type: apiKey

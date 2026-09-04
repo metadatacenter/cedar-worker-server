@@ -11,10 +11,20 @@ import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResourc
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.model.ServerName;
 import org.metadatacenter.server.logging.AppLoggerExecutorService;
+import org.metadatacenter.server.logging.agg.LogAggregationService;
 import org.metadatacenter.server.logging.dao.ApplicationCypherLogDAO;
 import org.metadatacenter.server.logging.dao.ApplicationRequestLogDAO;
+import org.metadatacenter.server.logging.dao.agg.AggregationRollupDAO;
+import org.metadatacenter.server.logging.dao.agg.LogAggregationStateDAO;
 import org.metadatacenter.server.logging.dbmodel.ApplicationCypherLog;
 import org.metadatacenter.server.logging.dbmodel.ApplicationRequestLog;
+import org.metadatacenter.server.logging.dbmodel.agg.AggCypherHourly;
+import org.metadatacenter.server.logging.dbmodel.agg.AggCypherOutlier;
+import org.metadatacenter.server.logging.dbmodel.agg.AggCypherQueryCatalog;
+import org.metadatacenter.server.logging.dbmodel.agg.AggRequestHourly;
+import org.metadatacenter.server.logging.dbmodel.agg.AggRequestOutlier;
+import org.metadatacenter.server.logging.dbmodel.agg.AggRequestUserHourly;
+import org.metadatacenter.server.logging.dbmodel.agg.LogAggregationState;
 import org.metadatacenter.server.queue.util.CloneInstancesQueueService;
 import org.metadatacenter.server.queue.util.PermissionQueueService;
 import org.metadatacenter.server.resource.CloneInstancesExecutorService;
@@ -27,6 +37,9 @@ import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecuto
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
 import org.metadatacenter.worker.AppLoggerQueueProcessor;
 import org.metadatacenter.worker.CloneInstancesQueueProcessor;
+import org.metadatacenter.worker.HistoricalBackfillJob;
+import org.metadatacenter.worker.LiveAggregatorJob;
+import org.metadatacenter.worker.LogPruneJob;
 import org.metadatacenter.worker.PermissionQueueProcessor;
 import org.metadatacenter.worker.ValuerecommenderReindexQueueProcessor;
 
@@ -38,6 +51,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   private CedarHibernateBundle<WorkerServerConfiguration> hibernate;
   private ApplicationRequestLogDAO requestLogDAO;
   private ApplicationCypherLogDAO cypherLogDAO;
+  private static LogAggregationService logAggregationService;
   private static PermissionQueueService permissionQueueService;
   private static SearchPermissionExecutorService searchPermissionExecutorService;
   private static CloneInstancesQueueService cloneInstancesQueueService;
@@ -62,6 +76,13 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         cedarConfig.getDBLoggingConfig(),
         ApplicationRequestLog.class, new Class[]{
         ApplicationCypherLog.class,
+        AggRequestHourly.class,
+        AggCypherHourly.class,
+        AggRequestUserHourly.class,
+        AggCypherQueryCatalog.class,
+        AggRequestOutlier.class,
+        AggCypherOutlier.class,
+        LogAggregationState.class,
     }
     );
     bootstrap.addBundle(hibernate);
@@ -92,6 +113,13 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         .create(AppLoggerExecutorService.class,
             new Class[]{ApplicationRequestLogDAO.class, ApplicationCypherLogDAO.class},
             new Object[]{requestLogDAO, cypherLogDAO});
+
+    AggregationRollupDAO aggregationRollupDAO = new AggregationRollupDAO(hibernate.getSessionFactory());
+    LogAggregationStateDAO logAggregationStateDAO = new LogAggregationStateDAO(hibernate.getSessionFactory());
+    logAggregationService = new UnitOfWorkAwareProxyFactory(hibernate)
+        .create(LogAggregationService.class,
+            new Class[]{AggregationRollupDAO.class, LogAggregationStateDAO.class},
+            new Object[]{aggregationRollupDAO, logAggregationStateDAO});
 
     valuerecommenderQueueService =
         new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
@@ -125,6 +153,15 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     AppLoggerQueueProcessor appLoggerQueueProcessor = new AppLoggerQueueProcessor(appLoggerQueueService,
         appLoggerExecutorService);
     environment.lifecycle().manage(appLoggerQueueProcessor);
+
+    HistoricalBackfillJob historicalBackfillJob = new HistoricalBackfillJob(logAggregationService);
+    environment.lifecycle().manage(historicalBackfillJob);
+
+    LiveAggregatorJob liveAggregatorJob = new LiveAggregatorJob(logAggregationService);
+    environment.lifecycle().manage(liveAggregatorJob);
+
+    LogPruneJob logPruneJob = new LogPruneJob(logAggregationService);
+    environment.lifecycle().manage(logPruneJob);
 
     ValuerecommenderReindexQueueProcessor valuerecommenderReindexQueueProcessor =
         new ValuerecommenderReindexQueueProcessor(valuerecommenderQueueService, valuerecommenderExecutorService);

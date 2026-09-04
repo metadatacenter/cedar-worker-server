@@ -3,7 +3,7 @@
   "info" : {
     "description" : "Better Metadata - Better Science\n\nThe worker server runs the background jobs the rest of CEDAR cannot do inside a request: work\nthat takes longer than a caller should wait, and that must survive being interrupted.\n\nIts endpoints start a job and report on one. They are restricted to administrators.\n",
     "title" : "CEDAR Worker Server API",
-    "version" : "2.9.6"
+    "version" : "2.9.7"
   },
   "paths" : {
     "/command/regenerate-inclusion-subgraph" : {
@@ -12,6 +12,13 @@
         "operationId" : "regenerateInclusionSubgraph",
         "responses" : {
           "202" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InclusionSubgraphJob"
+                }
+              }
+            },
             "description" : "A job was started",
             "headers" : {
               "Location" : {
@@ -30,6 +37,13 @@
             "description" : "The caller is not an administrator"
           },
           "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InclusionSubgraphJob"
+                }
+              }
+            },
             "description" : "A regeneration is already running; the job returned is that one, not a new one",
             "headers" : {
               "Location" : {
@@ -67,6 +81,13 @@
         } ],
         "responses" : {
           "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InclusionSubgraphJob"
+                }
+              }
+            },
             "description" : "The job and its current state"
           },
           "401" : {
@@ -91,6 +112,41 @@
     }
   },
   "components" : {
+    "schemas" : {
+      "InclusionSubgraphJob" : {
+        "type" : "object",
+        "additionalProperties" : false,
+        "properties" : {
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "error" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "QUEUED", "RUNNING", "SUCCEEDED", "FAILED" ]
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "id", "status", "submittedAt" ]
+      }
+    },
     "securitySchemes" : {
       "api_key" : {
         "description" : "Your CEDAR API key, using the format 'apiKey <yourApiKey>'",
