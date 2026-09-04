@@ -3,7 +3,7 @@
   "info" : {
     "description" : "Better Metadata - Better Science\n\nThe worker server runs the background jobs the rest of CEDAR cannot do inside a request: work\nthat takes longer than a caller should wait, and that must survive being interrupted.\n\nIts endpoints start a job and report on one. They are restricted to administrators.\n",
     "title" : "CEDAR Worker Server API",
-    "version" : "2.9.7-SNAPSHOT"
+    "version" : "2.9.8-SNAPSHOT"
   },
   "paths" : {
     "/command/regenerate-inclusion-subgraph" : {
