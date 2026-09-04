@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.metadatacenter.util.http.CedarError;
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.exception.CedarException;
 import org.metadatacenter.cedar.worker.InclusionSubgraphRegenerationManager;
@@ -58,9 +59,9 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
           content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob")),
           headers = @Header(name = "Location", description = "Where to poll the running job's status.",
               schema = @Schema(type = "string"))),
-      @ApiResponse(responseCode = "401", description = "Unauthorized"),
-      @ApiResponse(responseCode = "403", description = "The caller is not an administrator"),
-      @ApiResponse(responseCode = "500", description = "Internal server error")
+      @ApiResponse(responseCode = "401", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Unauthorized"),
+      @ApiResponse(responseCode = "403", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "The caller is not an administrator"),
+      @ApiResponse(responseCode = "500", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Internal server error")
   })
   public Response regenerateInclusionSubgraph() throws CedarException {
     CedarRequestContext c = buildRequestContext();
@@ -82,10 +83,10 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
   @ApiResponses({
       @ApiResponse(responseCode = "200", description = "The job and its current state",
           content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob"))),
-      @ApiResponse(responseCode = "401", description = "Unauthorized"),
-      @ApiResponse(responseCode = "403", description = "The caller is not an administrator"),
-      @ApiResponse(responseCode = "404", description = "No job answers to this identifier"),
-      @ApiResponse(responseCode = "500", description = "Internal server error")
+      @ApiResponse(responseCode = "401", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Unauthorized"),
+      @ApiResponse(responseCode = "403", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "The caller is not an administrator"),
+      @ApiResponse(responseCode = "404", description = "No job answers to this identifier; the response has no body"),
+      @ApiResponse(responseCode = "500", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Internal server error")
   })
   public Response regenerationStatus(
       @Parameter(description = "Job identifier, as returned when the job was started.", required = true)
