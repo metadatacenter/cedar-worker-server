@@ -8,7 +8,7 @@ info:
 
     Its endpoints start a job and report on one. They are restricted to administrators.
   title: CEDAR Worker Server API
-  version: 2.9.8-SNAPSHOT
+  version: 2.9.8
 paths:
   /command/regenerate-inclusion-subgraph:
     post:
