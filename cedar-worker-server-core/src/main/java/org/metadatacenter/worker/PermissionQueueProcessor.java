@@ -97,7 +97,7 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
         SearchPermissionQueueEvent event = null;
         Exception messageError = null;
         try {
-          event = JsonMapper.MAPPER.readValue(value, SearchPermissionQueueEvent.class);
+          event = JsonMapper.TOLERANT_MAPPER.readValue(value, SearchPermissionQueueEvent.class);
         } catch (IOException e) {
           log.error("There was an error while deserializing message", e);
           messageError = e;

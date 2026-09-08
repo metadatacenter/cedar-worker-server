@@ -84,7 +84,7 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
         }
         Exception messageError = null;
         try {
-          appLog = JsonMapper.MAPPER.readValue(value, AppLogMessage.class);
+          appLog = JsonMapper.TOLERANT_MAPPER.readValue(value, AppLogMessage.class);
         } catch (IOException e) {
           log.error("There was an error while deserializing message", e);
           markFailure();

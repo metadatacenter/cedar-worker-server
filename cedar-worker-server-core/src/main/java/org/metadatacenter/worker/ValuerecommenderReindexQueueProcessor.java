@@ -106,7 +106,7 @@ public class ValuerecommenderReindexQueueProcessor implements Managed, QueueProc
         ValuerecommenderReindexMessage message = null;
         Exception messageError = null;
         try {
-          message = JsonMapper.MAPPER.readValue(msg, ValuerecommenderReindexMessage.class);
+          message = JsonMapper.TOLERANT_MAPPER.readValue(msg, ValuerecommenderReindexMessage.class);
         } catch (IOException e) {
           log.error("There was an error while deserializing message", e);
           markFailure();

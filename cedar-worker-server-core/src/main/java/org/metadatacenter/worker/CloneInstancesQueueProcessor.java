@@ -84,7 +84,7 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
         }
         Exception messageError = null;
         try {
-          event = JsonMapper.MAPPER.readValue(value, CloneInstancesQueueEvent.class);
+          event = JsonMapper.TOLERANT_MAPPER.readValue(value, CloneInstancesQueueEvent.class);
         } catch (IOException e) {
           log.error("There was an error while deserializing message", e);
           markFailure();
