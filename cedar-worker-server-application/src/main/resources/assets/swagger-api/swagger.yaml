@@ -383,6 +383,15 @@ components:
         submittedAt:
           type: string
           format: date-time
+        unreadableArtifacts:
+          type: array
+          description: The artifacts a succeeded job left as they were because the
+            artifact server answered something other than 200 for them. Their inclusion
+            arcs were neither refreshed nor removed. Empty when every artifact was
+            read; null until the job completes.
+          items:
+            type: string
+          nullable: true
       required:
       - id
       - status

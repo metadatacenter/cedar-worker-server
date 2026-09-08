@@ -41,6 +41,12 @@ components:
         error:
           type: string
           nullable: true
+        unreadableArtifacts:
+          type: array
+          description: "The artifacts a succeeded job left as they were because the artifact server answered something other than 200 for them. Their inclusion arcs were neither refreshed nor removed. Empty when every artifact was read; null until the job completes."
+          nullable: true
+          items:
+            type: string
       additionalProperties: false
   securitySchemes:
     api_key:
