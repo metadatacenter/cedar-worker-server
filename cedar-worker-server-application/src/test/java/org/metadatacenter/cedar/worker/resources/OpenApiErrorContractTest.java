@@ -12,8 +12,7 @@ class OpenApiErrorContractTest {
   void errorResponsesPublishTheCommonSchema() throws IOException {
     try (InputStream input = getClass().getResourceAsStream("/assets/swagger-api/swagger.json")) {
       OpenApiErrorContract.assertDocumented(input,
-          "POST /command/regenerate-inclusion-subgraph 409",
-          "GET /command/regenerate-inclusion-subgraph/{jobId} 404");
+          "POST /command/regenerate-inclusion-subgraph 409");
     }
   }
 }

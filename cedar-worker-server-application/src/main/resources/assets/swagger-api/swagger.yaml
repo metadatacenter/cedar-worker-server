@@ -113,7 +113,11 @@ paths:
                 $ref: "#/components/schemas/CedarError"
           description: The caller is not an administrator
         "404":
-          description: No job answers to this identifier; the response has no body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CedarError"
+          description: No job answers to this identifier
         "500":
           content:
             application/json:
@@ -510,11 +514,6 @@ components:
           description: Named structured values associated with the error.
         operation:
           type: object
-          additionalProperties:
-            type: object
-            description: Operation that failed. Its fields depend on the operation
-              type.
-            nullable: true
           description: Operation that failed. Its fields depend on the operation type.
           nullable: true
         parameters:
