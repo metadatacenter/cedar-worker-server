@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,7 +26,7 @@ public class InclusionSubgraphRegenerationManager implements Managed {
 
   @FunctionalInterface
   interface Regeneration {
-    void run() throws Exception;
+    RegenerateInclusionSubgraphTask.Outcome run() throws Exception;
   }
 
   public enum Status {
@@ -39,6 +40,7 @@ public class InclusionSubgraphRegenerationManager implements Managed {
     private volatile Instant startedAt;
     private volatile Instant completedAt;
     private volatile String error;
+    private volatile List<String> unreadableArtifacts;
 
     private Job() {
       id = UUID.randomUUID().toString();
@@ -52,6 +54,13 @@ public class InclusionSubgraphRegenerationManager implements Managed {
     public Instant getStartedAt() { return startedAt; }
     public Instant getCompletedAt() { return completedAt; }
     public String getError() { return error; }
+
+    /**
+     * The artifacts a succeeded run left as they were because the artifact server answered
+     * something other than 200 for them. Their arcs are neither refreshed nor removed; a run that
+     * read every artifact reports an empty list. Null until the job completes.
+     */
+    public List<String> getUnreadableArtifacts() { return unreadableArtifacts; }
 
     private boolean isActive() {
       return status == Status.QUEUED || status == Status.RUNNING;
@@ -68,7 +77,7 @@ public class InclusionSubgraphRegenerationManager implements Managed {
   public InclusionSubgraphRegenerationManager(CedarConfig cedarConfig, UserService userService) {
     this(() -> {
       CedarRequestContext context = CedarRequestContextFactory.fromAdminUser(cedarConfig, userService);
-      new RegenerateInclusionSubgraphTask(cedarConfig).regenerateInclusionSubgraph(context);
+      return new RegenerateInclusionSubgraphTask(cedarConfig).regenerateInclusionSubgraph(context);
     });
   }
 
@@ -107,7 +116,8 @@ public class InclusionSubgraphRegenerationManager implements Managed {
     job.status = Status.RUNNING;
     Status terminalStatus;
     try {
-      regeneration.run();
+      RegenerateInclusionSubgraphTask.Outcome outcome = regeneration.run();
+      job.unreadableArtifacts = outcome.unreadableArtifacts();
       terminalStatus = Status.SUCCEEDED;
     } catch (Exception e) {
       job.error = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();

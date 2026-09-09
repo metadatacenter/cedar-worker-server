@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.metadatacenter.util.http.CedarError;
+import org.metadatacenter.util.http.CedarResponse;
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.exception.CedarException;
 import org.metadatacenter.cedar.worker.InclusionSubgraphRegenerationManager;
@@ -85,7 +86,8 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
           content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob"))),
       @ApiResponse(responseCode = "401", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Unauthorized"),
       @ApiResponse(responseCode = "403", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "The caller is not an administrator"),
-      @ApiResponse(responseCode = "404", description = "No job answers to this identifier; the response has no body"),
+      @ApiResponse(responseCode = "404", description = "No job answers to this identifier",
+          content = @Content(schema = @Schema(implementation = CedarError.class))),
       @ApiResponse(responseCode = "500", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Internal server error")
   })
   public Response regenerationStatus(
@@ -96,6 +98,8 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
 
     return jobManager.find(jobId)
         .map(job -> Response.ok(job).build())
-        .orElseGet(() -> Response.status(Response.Status.NOT_FOUND).build());
+        .orElseGet(() -> CedarResponse.notFound()
+            .errorMessage("No inclusion-subgraph regeneration job answers to " + jobId)
+            .build());
   }
 }

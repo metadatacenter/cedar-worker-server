@@ -2,13 +2,16 @@ package org.metadatacenter.cedar.worker;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.metadatacenter.server.search.util.RegenerateInclusionSubgraphTask;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class InclusionSubgraphRegenerationManagerTest {
@@ -29,6 +32,7 @@ class InclusionSubgraphRegenerationManagerTest {
     manager = new InclusionSubgraphRegenerationManager(() -> {
       started.countDown();
       assertTrue(release.await(10, TimeUnit.SECONDS));
+      return new RegenerateInclusionSubgraphTask.Outcome(0, List.of());
     });
     manager.start();
 
@@ -40,10 +44,25 @@ class InclusionSubgraphRegenerationManagerTest {
     assertFalse(overlapping.accepted());
     assertEquals(first.job().getId(), overlapping.job().getId());
     assertEquals(InclusionSubgraphRegenerationManager.Status.RUNNING, overlapping.job().getStatus());
+    assertNull(overlapping.job().getUnreadableArtifacts());
 
     release.countDown();
     awaitStatus(first.job(), InclusionSubgraphRegenerationManager.Status.SUCCEEDED);
     assertNotNull(first.job().getCompletedAt());
+    assertEquals(List.of(), first.job().getUnreadableArtifacts());
+  }
+
+  @Test
+  void aSucceededJobNamesTheArtifactsItCouldNotRead() throws Exception {
+    manager = new InclusionSubgraphRegenerationManager(
+        () -> new RegenerateInclusionSubgraphTask.Outcome(2, List.of("element-1", "template-7")));
+    manager.start();
+
+    InclusionSubgraphRegenerationManager.Job job = manager.submit().job();
+    awaitStatus(job, InclusionSubgraphRegenerationManager.Status.SUCCEEDED);
+
+    assertEquals(List.of("element-1", "template-7"), job.getUnreadableArtifacts());
+    assertNull(job.getError());
   }
 
   @Test

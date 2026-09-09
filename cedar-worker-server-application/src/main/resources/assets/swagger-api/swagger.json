@@ -3,9 +3,28 @@
   "info" : {
     "description" : "Better Metadata - Better Science\n\nThe worker server runs the background jobs the rest of CEDAR cannot do inside a request: work\nthat takes longer than a caller should wait, and that must survive being interrupted.\n\nIts endpoints start a job and report on one. They are restricted to administrators.\n",
     "title" : "CEDAR Worker Server API",
-    "version" : "2.9.9"
+    "version" : "2.9.10"
   },
   "paths" : {
+    "/" : {
+      "get" : {
+        "operationId" : "showInfo",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "The service name and links to its API documentation"
+          }
+        },
+        "summary" : "Describe this CEDAR service",
+        "tags" : [ "Service" ]
+      }
+    },
     "/command/regenerate-inclusion-subgraph" : {
       "post" : {
         "description" : "Ask for the graph of which artifacts include which to be rebuilt, and return the job that will do it. The work is asynchronous, so this answers immediately with a job to poll rather than waiting for the rebuild. Only one job runs at a time: asking again while one is in flight returns that job rather than starting a second. Restricted to administrators.",
@@ -132,7 +151,14 @@
             "description" : "The caller is not an administrator"
           },
           "404" : {
-            "description" : "No job answers to this identifier; the response has no body"
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "No job answers to this identifier"
           },
           "500" : {
             "content" : {
@@ -150,6 +176,310 @@
         } ],
         "summary" : "Get the status of a regeneration job",
         "tags" : [ "Inclusion subgraph" ]
+      }
+    },
+    "/healthcheck" : {
+      "get" : {
+        "operationId" : "healthCheck",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Every health check passed"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Unauthorized"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Forbidden"
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "At least one health check failed"
+          }
+        },
+        "security" : [ {
+          "api_key" : [ ]
+        } ],
+        "summary" : "Run this service's health checks",
+        "tags" : [ "Service diagnostics" ]
+      }
+    },
+    "/insight/full" : {
+      "get" : {
+        "operationId" : "full",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "The requested JVM diagnostic report"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Unauthorized"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Forbidden"
+          }
+        },
+        "security" : [ {
+          "api_key" : [ ]
+        } ],
+        "summary" : "Report all JVM diagnostics except per-thread stack traces",
+        "tags" : [ "Service diagnostics" ]
+      }
+    },
+    "/insight/gc" : {
+      "get" : {
+        "operationId" : "gc",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "The requested JVM diagnostic report"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Unauthorized"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Forbidden"
+          }
+        },
+        "security" : [ {
+          "api_key" : [ ]
+        } ],
+        "summary" : "Report JVM garbage-collection counts",
+        "tags" : [ "Service diagnostics" ]
+      }
+    },
+    "/insight/memory" : {
+      "get" : {
+        "operationId" : "memory",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "The requested JVM diagnostic report"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Unauthorized"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Forbidden"
+          }
+        },
+        "security" : [ {
+          "api_key" : [ ]
+        } ],
+        "summary" : "Report JVM memory use",
+        "tags" : [ "Service diagnostics" ]
+      }
+    },
+    "/insight/system" : {
+      "get" : {
+        "operationId" : "system",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "The requested JVM diagnostic report"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Unauthorized"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Forbidden"
+          }
+        },
+        "security" : [ {
+          "api_key" : [ ]
+        } ],
+        "summary" : "Report operating-system information",
+        "tags" : [ "Service diagnostics" ]
+      }
+    },
+    "/insight/thread-details" : {
+      "get" : {
+        "operationId" : "threadDetails",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "The requested JVM diagnostic report"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Unauthorized"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Forbidden"
+          }
+        },
+        "security" : [ {
+          "api_key" : [ ]
+        } ],
+        "summary" : "Report details and stack traces for every JVM thread",
+        "tags" : [ "Service diagnostics" ]
+      }
+    },
+    "/insight/threads" : {
+      "get" : {
+        "operationId" : "threads",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "The requested JVM diagnostic report"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Unauthorized"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "Forbidden"
+          }
+        },
+        "security" : [ {
+          "api_key" : [ ]
+        } ],
+        "summary" : "Report JVM thread counts",
+        "tags" : [ "Service diagnostics" ]
       }
     }
   },
@@ -179,7 +509,7 @@
           "errorKey" : {
             "type" : "string",
             "description" : "Stable machine-readable error identifier.",
-            "enum" : [ "templateElementNotCreated", "templateElementNotFound", "templateElementNotDeleted", "templateElementNotUpdated", "templateElementsNotListed", "templateFieldNotCreated", "templateFieldNotFound", "templateFieldNotDeleted", "templateFieldNotUpdated", "templateFieldsNotListed", "templateNotCreated", "templateNotFound", "templateNotDeleted", "templateNotUpdated", "templatesNotListed", "templateInstanceNotCreated", "templateInstanceNotFound", "templateInstanceNotDeleted", "templateInstanceNotUpdated", "templateInstancesNotListed", "noReadAccessToResource", "noWriteAccessToResource", "noReadAccessToFolder", "noWriteAccessToFolder", "noReadAccessToTemplate", "noWriteAccessToTemplate", "noReadAccessToTemplateElement", "noWriteAccessToTemplateElement", "noReadAccessToTemplateField", "noWriteAccessToTemplateField", "noReadAccessToTemplateInstance", "noWriteAccessToTemplateInstance", "noReadAccessToArtifact", "noWriteAccessToArtifact", "noReadAccessToCategory", "noWriteAccessToCategory", "folderNotFound", "artifactNotFound", "artifactPreconditionRequired", "artifactHasMovedOn", "verbatimWriteRefused", "nodeNotFound", "unknownResourceType", "missingParameter", "invalidInput", "sourceFolderNotFound", "sourceResourceNotFound", "targetFolderNotFound", "nodeNotMoved", "groupNotFound", "userNotFound", "uniqueConstraintCollision", "invalidData", "notAuthorized", "permissionMissing", "tokenInvalid", "userInfoLoadByTokenFailed", "userInfoLoadByApiKeyFailed", "cedarUserNotFound", "authorizationNotFound", "permissionNotOwned", "authorizationTypeUnknown", "apiKeyNotFound", "tokenMissing", "tokenExpired", "parentFolderNotSpecified", "parentFolderSpecifiedTwice", "pathNotNormalized", "parentFolderNotFound", "updateInvalidFolderName", "createInvalidFolderName", "nodeAlreadyPresent", "folderNotCreated", "missingNameAndDescription", "missingData", "folderNotDeleted", "artifactNotDeleted", "resourceNotCreated", "invalidResourceType", "invalidArtifactType", "readOtherProfileForbidden", "updateOtherProfileForbidden", "folderCanNotBeDeleted", "folderCanNotBeChanged", "groupAlreadyPresent", "groupCanBeModifiedOnlyByGroupAdmin", "groupCanBeDeletedOnlyByGroupAdmin", "groupRequiresAdministrator", "groupUsersNotUpdated", "specialGroupCanNotBeDeleted", "folderPermissionsCanNotBeChanged", "unknownInstanceOutputFormat", "folderCopyNotAllowed", "methodNotImplemented", "upstreamServerError", "nothingToDo", "parentCategoryNotFound", "categoryAlreadyPresent", "categoryNotFound", "categoryCanNotBeDeleted", "rootCategoryCanNotBeDeleted", "unableToAttachCategory", "unableToDetachCategory", "noCategoriesWereAttached", "malformedJsonRequestBody", "malformedSearchTerm", "publishedArtifactCanNotBeChanged", "publishedArtifactCanNotBeDeleted", "versioningOnlyOnLatest", "versioningOnlyByOwner", "nonVersionedArtifactType", "createDraftOnlyFromPublished", "publishOnlyDraft", "draftNotCreated", "contentNotValid", "doiNotSupportedByResourceType", "doiCanNotBeSetForEmptyAtId", "doiCanNotBeAltered", "doiCanNotBeSet", "doiAlreadyExists", "dataCiteDOIDisabled", "resourceNotFound", "internalError" ],
+            "enum" : [ "templateElementNotCreated", "templateElementNotFound", "templateElementNotDeleted", "templateElementNotUpdated", "templateElementsNotListed", "templateFieldNotCreated", "templateFieldNotFound", "templateFieldNotDeleted", "templateFieldNotUpdated", "templateFieldsNotListed", "templateNotCreated", "templateNotFound", "templateNotDeleted", "templateNotUpdated", "templatesNotListed", "templateInstanceNotCreated", "templateInstanceNotFound", "templateInstanceNotDeleted", "templateInstanceNotUpdated", "templateInstancesNotListed", "noReadAccessToResource", "noWriteAccessToResource", "noReadAccessToFolder", "noWriteAccessToFolder", "noReadAccessToTemplate", "noWriteAccessToTemplate", "noReadAccessToTemplateElement", "noWriteAccessToTemplateElement", "noReadAccessToTemplateField", "noWriteAccessToTemplateField", "noReadAccessToTemplateInstance", "noWriteAccessToTemplateInstance", "noReadAccessToArtifact", "noWriteAccessToArtifact", "noReadAccessToCategory", "noWriteAccessToCategory", "folderNotFound", "artifactNotFound", "artifactPreconditionRequired", "artifactHasMovedOn", "verbatimWriteRefused", "nodeNotFound", "unknownResourceType", "missingParameter", "invalidInput", "sourceFolderNotFound", "sourceResourceNotFound", "targetFolderNotFound", "nodeNotMoved", "groupNotFound", "userNotFound", "uniqueConstraintCollision", "invalidData", "notAuthorized", "permissionMissing", "tokenInvalid", "userInfoLoadByTokenFailed", "userInfoLoadByApiKeyFailed", "cedarUserNotFound", "authorizationNotFound", "permissionNotOwned", "authorizationTypeUnknown", "apiKeyNotFound", "tokenMissing", "tokenExpired", "parentFolderNotSpecified", "parentFolderSpecifiedTwice", "pathNotNormalized", "parentFolderNotFound", "updateInvalidFolderName", "createInvalidFolderName", "nodeAlreadyPresent", "folderNotCreated", "missingNameAndDescription", "missingData", "folderNotDeleted", "artifactNotDeleted", "resourceNotCreated", "invalidResourceType", "invalidArtifactType", "readOtherProfileForbidden", "updateOtherProfileForbidden", "folderCanNotBeDeleted", "folderCanNotBeChanged", "groupAlreadyPresent", "groupCanBeModifiedOnlyByGroupAdmin", "groupCanBeDeletedOnlyByGroupAdmin", "groupMembersCanBeReadOnlyByGroupAdmin", "groupRequiresAdministrator", "groupUsersNotUpdated", "specialGroupCanNotBeDeleted", "folderPermissionsCanNotBeChanged", "unknownInstanceOutputFormat", "folderCopyNotAllowed", "methodNotImplemented", "upstreamServerError", "nothingToDo", "parentCategoryNotFound", "categoryAlreadyPresent", "categoryNotFound", "categoryCanNotBeDeleted", "rootCategoryCanNotBeDeleted", "unableToAttachCategory", "unableToDetachCategory", "noCategoriesWereAttached", "malformedJsonRequestBody", "malformedSearchTerm", "publishedArtifactCanNotBeChanged", "publishedArtifactCanNotBeDeleted", "versioningOnlyOnLatest", "versioningOnlyByOwner", "nonVersionedArtifactType", "createDraftOnlyFromPublished", "publishOnlyDraft", "draftNotCreated", "contentNotValid", "doiNotSupportedByResourceType", "doiCanNotBeSetForEmptyAtId", "doiCanNotBeAltered", "doiCanNotBeSet", "doiAlreadyExists", "dataCiteDOIDisabled", "resourceNotFound", "internalError" ],
             "nullable" : true
           },
           "errorMessage" : {
@@ -214,11 +544,6 @@
           },
           "operation" : {
             "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "description" : "Operation that failed. Its fields depend on the operation type.",
-              "nullable" : true
-            },
             "description" : "Operation that failed. Its fields depend on the operation type.",
             "nullable" : true
           },
@@ -280,6 +605,14 @@
           "submittedAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "unreadableArtifacts" : {
+            "type" : "array",
+            "description" : "The artifacts a succeeded job left as they were because the artifact server answered something other than 200 for them. Their inclusion arcs were neither refreshed nor removed. Empty when every artifact was read; null until the job completes.",
+            "items" : {
+              "type" : "string"
+            },
+            "nullable" : true
           }
         },
         "required" : [ "id", "status", "submittedAt" ]
