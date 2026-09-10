@@ -99,7 +99,7 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
     return jobManager.find(jobId)
         .map(job -> Response.ok(job).build())
         .orElseGet(() -> CedarResponse.notFound()
-            .errorMessage("No inclusion-subgraph regeneration job answers to " + jobId)
+            .message("No inclusion-subgraph regeneration job answers to " + jobId)
             .build());
   }
 }
