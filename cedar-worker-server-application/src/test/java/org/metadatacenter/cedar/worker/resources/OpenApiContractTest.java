@@ -31,7 +31,7 @@ class OpenApiContractTest {
   private static JsonNode readSpec() throws IOException {
     try (InputStream input = OpenApiContractTest.class.getResourceAsStream("/assets/swagger-api/swagger.json")) {
       assertNotNull(input, "generated OpenAPI document");
-      return JsonMapper.MAPPER.readTree(input);
+      return JsonMapper.STRICT_MAPPER.readTree(input);
     }
   }
 }
