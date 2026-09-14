@@ -32,7 +32,9 @@ import org.metadatacenter.server.search.elasticsearch.service.NodeIndexingServic
 import org.metadatacenter.server.search.elasticsearch.service.NodeSearchingService;
 import org.metadatacenter.server.search.elasticsearch.service.ElasticsearchManagementService;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
+import org.metadatacenter.server.search.util.IndexRebuildRegistry;
 import org.metadatacenter.server.search.util.IndexUtils;
+import org.metadatacenter.server.search.util.RedisIndexRebuildStore;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecutorService;
 import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
 import org.metadatacenter.worker.AppLoggerQueueProcessor;
@@ -93,6 +95,11 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
 
     requestLogDAO = new ApplicationRequestLogDAO(hibernate.getSessionFactory());
     cypherLogDAO = new ApplicationCypherLogDAO(hibernate.getSessionFactory());
+
+    // The permission cascade indexes from this process. Without the shared store it would not see a
+    // rebuild running in the resource server, and every permission update it applied during one would
+    // go only to the index that promotion deletes.
+    IndexRebuildRegistry.install(new RedisIndexRebuildStore(cedarConfig.getCacheConfig().getPersistent()));
 
     permissionQueueService = new PermissionQueueService(cedarConfig.getCacheConfig().getPersistent());
 
