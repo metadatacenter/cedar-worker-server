@@ -184,7 +184,10 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         CedarDependencyHealthCheck.gating("OpenSearch", opensearch::verifyConnectivity));
     environment.healthChecks().register("queue-consumers", new WorkerQueueConsumersHealthCheck(
         List.of(searchPermissionProcessor, cloneInstancesQueueProcessor,
-            appLoggerQueueProcessor, valuerecommenderReindexQueueProcessor),
+            appLoggerQueueProcessor, valuerecommenderReindexQueueProcessor)));
+    // Separate from the consumers, and deliberately not gating: a parked message is a backlog to
+    // look at, not a server that cannot serve. See WorkerDeadLetterHealthCheck.
+    environment.healthChecks().register("queue-dead-letter", new WorkerDeadLetterHealthCheck(
         Map.of(
             "search-permission", permissionQueueService::deadLetterCount,
             "clone-instances", cloneInstancesQueueService::deadLetterCount,

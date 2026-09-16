@@ -6,22 +6,23 @@ import org.metadatacenter.worker.QueueProcessorMonitor;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
+/**
+ * Whether this server's queue consumers are running and processing.
+ * <p>
+ * <strong>Gating</strong>, in the sense {@code CedarDependencyHealthCheck} defines: a consumer that
+ * has stopped, or whose last attempt failed and has not since succeeded, is a server not doing its
+ * job, and a deploy should not be called finished while one is in that state.
+ * <p>
+ * Dead-letter depth used to be checked here too and is not any more - see
+ * {@link WorkerDeadLetterHealthCheck} for why parking a message is not the same kind of condition.
+ */
 public class WorkerQueueConsumersHealthCheck extends HealthCheck {
 
-  @FunctionalInterface
-  public interface QueueDepthProbe {
-    long count() throws Exception;
-  }
-
   private final List<QueueProcessorMonitor> processors;
-  private final Map<String, QueueDepthProbe> deadLetterQueues;
 
-  public WorkerQueueConsumersHealthCheck(List<QueueProcessorMonitor> processors,
-                                         Map<String, QueueDepthProbe> deadLetterQueues) {
+  public WorkerQueueConsumersHealthCheck(List<QueueProcessorMonitor> processors) {
     this.processors = List.copyOf(processors);
-    this.deadLetterQueues = Map.copyOf(deadLetterQueues);
   }
 
   @Override
@@ -35,16 +36,6 @@ public class WorkerQueueConsumersHealthCheck extends HealthCheck {
       Instant success = processor.getLastSuccessAt();
       if (failure != null && (success == null || failure.isAfter(success))) {
         problems.add(processor.getProcessorName() + " last failed at " + failure);
-      }
-    }
-    for (Map.Entry<String, QueueDepthProbe> queue : deadLetterQueues.entrySet()) {
-      try {
-        long count = queue.getValue().count();
-        if (count > 0) {
-          problems.add(queue.getKey() + " dead-letter queue contains " + count + " message(s)");
-        }
-      } catch (Exception e) {
-        problems.add("could not read " + queue.getKey() + " dead-letter queue: " + e.getMessage());
       }
     }
     return problems.isEmpty() ? Result.healthy("All queue consumers are running")
