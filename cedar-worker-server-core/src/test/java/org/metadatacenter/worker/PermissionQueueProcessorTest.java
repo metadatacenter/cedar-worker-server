@@ -11,6 +11,7 @@ import org.metadatacenter.server.search.SearchPermissionQueueEvent;
 import org.metadatacenter.server.search.SearchPermissionQueueEventType;
 import org.metadatacenter.server.search.permission.SearchPermissionExecutorService;
 import org.mockito.ArgumentCaptor;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -81,18 +82,21 @@ class PermissionQueueProcessorTest {
   @Test
   void eventsAreHandledInTheOrderTheyWereEnqueued() throws Exception {
     SearchPermissionExecutorService executor = mock(SearchPermissionExecutorService.class);
+    var handled = new java.util.concurrent.CopyOnWriteArrayList<String>();
+    org.mockito.Mockito.doAnswer(call -> {
+      handled.add(((SearchPermissionQueueEvent) call.getArgument(0)).getId()); return null;
+    }).when(executor).handleEvent(any());
+    org.mockito.Mockito.doAnswer(call -> {
+      List<SearchPermissionQueueEvent> batch = call.getArgument(0);
+      batch.forEach(e -> handled.add(e.getId())); return null;
+    }).when(executor).handleEvents(any());
     startWith(executor);
-
     queueService.enqueueEvent(event("first"));
     queueService.enqueueEvent(event("second"));
     queueService.enqueueEvent(event("third"));
-
-    ArgumentCaptor<SearchPermissionQueueEvent> handled =
-        ArgumentCaptor.forClass(SearchPermissionQueueEvent.class);
-    verify(executor, timeout(20_000).times(3)).handleEvent(handled.capture());
-
-    assertEquals(java.util.List.of("first", "second", "third"),
-        handled.getAllValues().stream().map(SearchPermissionQueueEvent::getId).toList());
+    long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+    while (handled.size() < 3 && System.nanoTime() < deadline) Thread.sleep(10);
+    assertEquals(java.util.List.of("first", "second", "third"), handled);
   }
 
   /**
@@ -109,6 +113,7 @@ class PermissionQueueProcessorTest {
   void afailingEventDoesNotStopTheOnesBehindIt() throws Exception {
     SearchPermissionExecutorService executor = mock(SearchPermissionExecutorService.class);
     doThrow(new RuntimeException("indexing blew up")).when(executor).handleEvent(any());
+    doThrow(new RuntimeException("batch failed")).when(executor).handleEvents(any());
     startWith(executor);
 
     queueService.enqueueEvent(event("poison"));
@@ -150,6 +155,7 @@ class PermissionQueueProcessorTest {
   void anEventThatKeepsFailingIsParkedRatherThanLost() throws Exception {
     SearchPermissionExecutorService executor = mock(SearchPermissionExecutorService.class);
     doThrow(new RuntimeException("indexing blew up")).when(executor).handleEvent(any());
+    doThrow(new RuntimeException("batch failed")).when(executor).handleEvents(any());
     startWith(executor);
 
     queueService.enqueueEvent(event("artifact-1"));
@@ -237,4 +243,68 @@ class PermissionQueueProcessorTest {
     offlineProcessor.start();
     offlineProcessor.stop();
   }
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+  void aClaimedBatchRemainsDurableUntilEveryProjectionFinishes(boolean stopDuringProjection) throws Exception {
+    redis = EmbeddedRedis.start();
+    var config = QueueTestConfig.onPort(redis.port());
+    queueService = new PermissionQueueService(config);
+    for (int i = 0; i < 512; i++) queueService.enqueueEvent(event("batch-" + i));
+    var entered = new java.util.concurrent.CountDownLatch(1);
+    var release = new java.util.concurrent.CountDownLatch(1);
+    var executor = mock(SearchPermissionExecutorService.class);
+    org.mockito.Mockito.doAnswer(call -> {
+      assertEquals(512, ((List<?>) call.getArgument(0)).size());
+      entered.countDown();
+      release.await();
+      return null;
+    }).when(executor).handleEvents(any());
+    processor = new PermissionQueueProcessor(queueService, executor, TEST_RETRY_DELAY_MILLIS);
+    processor.start();
+    try {
+      assertTrue(entered.await(10, java.util.concurrent.TimeUnit.SECONDS));
+      assertEquals(512, queueService.inFlightCount());
+      if (stopDuringProjection) {
+        processor.stop();
+        processor = null;
+        var recovered = new PermissionQueueService(config);
+        try {
+          recovered.initializeBlockingQueue();
+          assertEquals(512, recovered.messageCount());
+          assertEquals(0, recovered.inFlightCount());
+        } finally {
+          recovered.close();
+        }
+      } else {
+        release.countDown();
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+        while (queueService.inFlightCount() != 0 && System.nanoTime() < deadline) Thread.sleep(10);
+        assertEquals(0, queueService.inFlightCount());
+        assertEquals(0, queueService.deadLetterCount());
+      }
+    } finally {
+      release.countDown();
+    }
+  }
+
+  @Test
+  void failedBatchRetriesIndividuallyAndParksOnlyItsPoisonEvent() throws Exception {
+    redis = EmbeddedRedis.start();
+    queueService = new PermissionQueueService(QueueTestConfig.onPort(redis.port()));
+    queueService.enqueueEvent(event("poison"));
+    queueService.enqueueEvent(event("healthy"));
+    var executor = mock(SearchPermissionExecutorService.class);
+    doThrow(new RuntimeException("batch failed")).when(executor).handleEvents(any());
+    doThrow(new RuntimeException("poison failed")).when(executor)
+        .handleEvent(argThat(e -> "poison".equals(e.getId())));
+    processor = new PermissionQueueProcessor(queueService, executor, TEST_RETRY_DELAY_MILLIS);
+    processor.start();
+    verify(executor, timeout(10_000)).handleEvent(argThat(e -> "healthy".equals(e.getId())));
+    long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+    while (queueService.inFlightCount() != 0 && System.nanoTime() < deadline) Thread.sleep(10);
+    assertEquals(0, queueService.inFlightCount());
+    assertEquals(1, queueService.deadLetterCount());
+    verify(executor, times(3)).handleEvent(argThat(e -> "poison".equals(e.getId())));
+  }
+
 }
