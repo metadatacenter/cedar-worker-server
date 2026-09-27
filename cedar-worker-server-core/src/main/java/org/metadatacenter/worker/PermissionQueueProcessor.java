@@ -94,24 +94,49 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
           // initialization recovers it ahead of newer work, so shutdown cannot discard it.
           break;
         }
-        SearchPermissionQueueEvent event = null;
-        Exception messageError = null;
-        try {
-          event = JsonMapper.TOLERANT_MAPPER.readValue(value, SearchPermissionQueueEvent.class);
-        } catch (IOException e) {
-          log.error("There was an error while deserializing message", e);
-          messageError = e;
-          markFailure();
+        List<String> claimed = new java.util.ArrayList<>();
+        claimed.add(value);
+        claimed.addAll(permissionQueueService.claimAvailableMessages(511));
+        List<SearchPermissionQueueEvent> events = new java.util.ArrayList<>();
+        List<String> validMessages = new java.util.ArrayList<>();
+        for (String raw : claimed) {
+          try {
+            var event = JsonMapper.TOLERANT_MAPPER.readValue(raw, SearchPermissionQueueEvent.class);
+            if (event == null || event.getEventType() == null || event.getId() == null) {
+              throw new IllegalArgumentException("Incomplete search-permission event");
+            }
+            events.add(event);
+            validMessages.add(raw);
+          } catch (IOException | IllegalArgumentException e) {
+            markFailure();
+            if (doProcessing) deadLetter(raw, e);
+          }
         }
-        if (event != null) {
-          log.info("  event id: " + event.getId());
-          log.info("      type: " + event.getEventType());
-          log.info(" createdAt: " + event.getCreatedAt());
-          handleWithRetries(event, value);
-        } else if (doProcessing) {
-          log.warn("Unable to handle message, it is null.");
-          deadLetter(value, messageError == null
-              ? new IllegalArgumentException("The search-permission message was null") : messageError);
+        if (!doProcessing) break;
+        if (events.size() == 1) {
+          handleWithRetries(events.get(0), validMessages.get(0));
+        } else if (!events.isEmpty()) {
+          boolean applied = false;
+          try {
+            searchPermissionExecutorService.handleEvents(events);
+            applied = true;
+          } catch (Exception failure) {
+            markFailure();
+            // Isolate a poison event instead of dead-lettering unrelated members of its batch.
+            log.warn("Permission batch failed; retrying its events individually", failure);
+          }
+          if (applied) {
+            for (String raw : validMessages) {
+              if (!permissionQueueService.acknowledge(raw)) {
+                throw new IllegalStateException("The projected batch could not be acknowledged");
+              }
+            }
+            markSuccess();
+          } else {
+            for (int i = 0; i < events.size() && doProcessing; i++) {
+              handleWithRetries(events.get(i), validMessages.get(i));
+            }
+          }
         }
       }
     }
@@ -196,6 +221,7 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
       executor.shutdownNow();
       executor.awaitTermination(5, TimeUnit.SECONDS);
     }
+    searchPermissionExecutorService.close();
     log.info("Close Jedis");
     permissionQueueService.close();
   }
