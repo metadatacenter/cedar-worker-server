@@ -94,7 +94,13 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
           log.info("    old id: " + event.getOldId());
           log.info("    new id: " + event.getNewId());
           log.info(" createdAt: " + event.getCreatedAt());
-          handleWithRetries(event, value);
+          if (cloneInstancesQueueService.beginExecution(value)) {
+            handleWithRetries(event, value);
+          } else {
+            markFailure();
+            deadLetter(value, new CloneInstancesNotRetryableException(
+                "A recovered clone already began execution; inspect its result before replaying it"));
+          }
         } else if (doProcessing) {
           log.warn("Unable to handle message, it is null.");
           deadLetter(value, messageError == null
@@ -132,11 +138,6 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
       }
       try {
         cloneInstancesExecutorService.handleEvent(event);
-        if (!cloneInstancesQueueService.acknowledge(rawMessage)) {
-          throw new IllegalStateException("The processed message could not be acknowledged");
-        }
-        markSuccess();
-        return;
       } catch (Exception e) {
         markFailure();
         // Cloning is not idempotent, and the executor says so when a re-run would duplicate what
@@ -158,6 +159,33 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
           Thread.currentThread().interrupt();
           return;
         }
+        continue;
+      }
+      // A successful clone must never re-enter the handling retry loop. Acknowledgement can fail
+      // independently after all mutations have committed; only that operation may be retried.
+      acknowledgeCompleted(rawMessage);
+      return;
+    }
+  }
+
+  private void acknowledgeCompleted(String rawMessage) {
+    while (doProcessing) {
+      try {
+        if (cloneInstancesQueueService.acknowledge(rawMessage)) {
+          markSuccess();
+          return;
+        }
+        markFailure();
+      } catch (Exception e) {
+        markFailure();
+        consumerFailureLogger.report(log, "A completed clone is waiting for queue acknowledgement; "
+            + "retrying acknowledgement without repeating the clone.", "failures", e);
+      }
+      try {
+        Thread.sleep(HANDLING_RETRY_DELAY_MILLIS);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        return;
       }
     }
   }
