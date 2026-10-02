@@ -155,6 +155,10 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
 
     CloneInstancesQueueProcessor cloneInstancesQueueProcessor =
         new CloneInstancesQueueProcessor(cloneInstancesQueueService, cloneInstancesExecutorService);
+    environment.lifecycle().manage(new io.dropwizard.lifecycle.Managed() {
+      @Override public void start() { cloneInstancesExecutorService.start(); }
+      @Override public void stop() { cloneInstancesExecutorService.close(); }
+    });
     environment.lifecycle().manage(cloneInstancesQueueProcessor);
 
     AppLoggerQueueProcessor appLoggerQueueProcessor = new AppLoggerQueueProcessor(appLoggerQueueService,
