@@ -99,7 +99,7 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
           } else {
             markFailure();
             deadLetter(value, new CloneInstancesNotRetryableException(
-                "A recovered clone already began execution; inspect its result before replaying it"));
+                "The clone claim was superseded or an earlier execution began; inspect its result before replaying it"));
           }
         } else if (doProcessing) {
           log.warn("Unable to handle message, it is null.");
@@ -193,7 +193,7 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
   private void deadLetter(String rawMessage, Exception cause) {
     if (!cloneInstancesQueueService.deadLetter(rawMessage)) {
       log.error("The clone-instances message could not be moved to the dead-letter queue; "
-          + "it remains in-flight for recovery", cause);
+          + "its claim may have been superseded, or remain in-flight for recovery", cause);
     } else {
       log.error("The clone-instances message was moved to "
           + cloneInstancesQueueService.getDeadLetterQueueName(), cause);
