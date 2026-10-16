@@ -23,6 +23,7 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
 
   private final AppLoggerQueueService appLoggerQueueService;
   private final AppLoggerExecutorService appLoggerExecutorService;
+  private final long handlingRetryDelayMillis;
   private volatile boolean doProcessing;
   private ExecutorService executor;
   private Future<?> workerFuture;
@@ -32,8 +33,15 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
 
   public AppLoggerQueueProcessor(AppLoggerQueueService appLoggerQueueService,
                                  AppLoggerExecutorService appLoggerExecutorService) {
+    this(appLoggerQueueService, appLoggerExecutorService, HANDLING_RETRY_DELAY_MILLIS);
+  }
+
+  AppLoggerQueueProcessor(AppLoggerQueueService appLoggerQueueService,
+                          AppLoggerExecutorService appLoggerExecutorService,
+                          long handlingRetryDelayMillis) {
     this.appLoggerQueueService = appLoggerQueueService;
     this.appLoggerExecutorService = appLoggerExecutorService;
+    this.handlingRetryDelayMillis = handlingRetryDelayMillis;
     doProcessing = true;
   }
 
@@ -140,7 +148,7 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
           return;
         }
         try {
-          Thread.sleep(HANDLING_RETRY_DELAY_MILLIS);
+          Thread.sleep(handlingRetryDelayMillis);
         } catch (InterruptedException interrupted) {
           Thread.currentThread().interrupt();
           return;

@@ -28,6 +28,9 @@ import static org.mockito.Mockito.verify;
 @Timeout(30)
 class DurableBlockingQueueProcessorsTest {
 
+  // The retry is under test, not its production delay.
+  private static final long TEST_RETRY_DELAY_MILLIS = 10;
+
   private EmbeddedRedis redis;
   private CloneInstancesQueueProcessor cloneProcessor;
   private AppLoggerQueueProcessor logProcessor;
@@ -51,7 +54,7 @@ class DurableBlockingQueueProcessorsTest {
     CloneInstancesQueueService queue = new CloneInstancesQueueService(QueueTestConfig.onPort(redis.port()));
     CloneInstancesExecutorService executor = mock(CloneInstancesExecutorService.class);
     doThrow(new IllegalStateException("clone failed")).when(executor).handleEvent(any());
-    cloneProcessor = new CloneInstancesQueueProcessor(queue, executor);
+    cloneProcessor = new CloneInstancesQueueProcessor(queue, executor, TEST_RETRY_DELAY_MILLIS);
     cloneProcessor.start();
 
     queue.enqueueEvent(new CloneInstancesQueueEvent(
@@ -75,7 +78,7 @@ class DurableBlockingQueueProcessorsTest {
     CloneInstancesExecutorService executor = mock(CloneInstancesExecutorService.class);
     doThrow(new CloneInstancesNotRetryableException("part of the clone was created"))
         .when(executor).handleEvent(any());
-    cloneProcessor = new CloneInstancesQueueProcessor(queue, executor);
+    cloneProcessor = new CloneInstancesQueueProcessor(queue, executor, TEST_RETRY_DELAY_MILLIS);
     cloneProcessor.start();
 
     queue.enqueueEvent(new CloneInstancesQueueEvent(
@@ -93,7 +96,7 @@ class DurableBlockingQueueProcessorsTest {
     AppLoggerQueueService queue = new AppLoggerQueueService(QueueTestConfig.onPort(redis.port()));
     AppLoggerExecutorService executor = mock(AppLoggerExecutorService.class);
     doThrow(new IllegalStateException("database failed")).when(executor).handleLog(any());
-    logProcessor = new AppLoggerQueueProcessor(queue, executor);
+    logProcessor = new AppLoggerQueueProcessor(queue, executor, TEST_RETRY_DELAY_MILLIS);
     logProcessor.start();
 
     queue.enqueueEvent(new AppLogMessage(SystemComponent.SERVER_RESOURCE, AppLogType.REQUEST_FILTER,

@@ -24,6 +24,7 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
 
   private final CloneInstancesQueueService cloneInstancesQueueService;
   private final CloneInstancesExecutorService cloneInstancesExecutorService;
+  private final long handlingRetryDelayMillis;
   private volatile boolean doProcessing;
   private ExecutorService executor;
   private Future<?> workerFuture;
@@ -33,8 +34,15 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
 
   public CloneInstancesQueueProcessor(CloneInstancesQueueService cloneInstancesQueueService,
                                       CloneInstancesExecutorService cloneInstancesExecutorService) {
+    this(cloneInstancesQueueService, cloneInstancesExecutorService, HANDLING_RETRY_DELAY_MILLIS);
+  }
+
+  CloneInstancesQueueProcessor(CloneInstancesQueueService cloneInstancesQueueService,
+                               CloneInstancesExecutorService cloneInstancesExecutorService,
+                               long handlingRetryDelayMillis) {
     this.cloneInstancesQueueService = cloneInstancesQueueService;
     this.cloneInstancesExecutorService = cloneInstancesExecutorService;
+    this.handlingRetryDelayMillis = handlingRetryDelayMillis;
     doProcessing = true;
   }
 
@@ -154,7 +162,7 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
           return;
         }
         try {
-          Thread.sleep(HANDLING_RETRY_DELAY_MILLIS);
+          Thread.sleep(handlingRetryDelayMillis);
         } catch (InterruptedException interrupted) {
           Thread.currentThread().interrupt();
           return;
@@ -182,7 +190,7 @@ public class CloneInstancesQueueProcessor implements Managed, QueueProcessorMoni
             + "retrying acknowledgement without repeating the clone.", "failures", e);
       }
       try {
-        Thread.sleep(HANDLING_RETRY_DELAY_MILLIS);
+        Thread.sleep(handlingRetryDelayMillis);
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         return;
