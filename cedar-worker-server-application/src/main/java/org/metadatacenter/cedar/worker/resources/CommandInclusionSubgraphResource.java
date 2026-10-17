@@ -23,6 +23,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
@@ -55,25 +56,55 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
           content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob")),
           headers = @Header(name = "Location", description = "Where to poll this job's status.",
               schema = @Schema(type = "string"))),
-      @ApiResponse(responseCode = "409",
-          description = "A regeneration is already running; the job returned is that one, not a new one",
-          content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob")),
+      @ApiResponse(responseCode = "401", description = UNAUTHORIZED,
+          content = @Content(schema = @Schema(implementation = CedarError.class))),
+      @ApiResponse(responseCode = "403", description = "The caller is not an administrator",
+          content = @Content(schema = @Schema(implementation = CedarError.class))),
+      @ApiResponse(responseCode = "406", description = NOT_ACCEPTABLE,
+          content = @Content(schema = @Schema(implementation = CedarError.class))),
+      @ApiResponse(responseCode = "409", description = "A regeneration is already queued or running, so no "
+          + "second one was started. The body's objects.job holds that job.",
+          content = @Content(schema = @Schema(implementation = CedarError.class)),
           headers = @Header(name = "Location", description = "Where to poll the running job's status.",
               schema = @Schema(type = "string"))),
-      @ApiResponse(responseCode = "401", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Unauthorized"),
-      @ApiResponse(responseCode = "403", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "The caller is not an administrator"),
-      @ApiResponse(responseCode = "500", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Internal server error")
+      @ApiResponse(responseCode = "429", description = RATE_LIMITED,
+          content = @Content(schema = @Schema(implementation = CedarError.class))),
+      @ApiResponse(responseCode = "500", description = INTERNAL_ERROR,
+          content = @Content(schema = @Schema(implementation = CedarError.class))),
+      @ApiResponse(responseCode = "503", description = UNAVAILABLE,
+          content = @Content(schema = @Schema(implementation = CedarError.class)))
   })
   public Response regenerateInclusionSubgraph() throws CedarException {
     CedarRequestContext c = buildRequestContext();
     AdminCommand.REGENERATE_INCLUSION_SUBGRAPH.enforce(c);
 
-    InclusionSubgraphRegenerationManager.StartResult result = jobManager.submit();
-    URI statusUri = URI.create("/command/regenerate-inclusion-subgraph/" + result.job().getId());
-    return result.accepted()
-        ? Response.accepted(result.job()).location(statusUri).build()
-        : Response.status(Response.Status.CONFLICT).entity(result.job()).location(statusUri).build();
+    return answer(jobManager.submit());
   }
+
+  /**
+   * The answer to a request for a regeneration. A started job is accepted. A request made while a job
+   * is in flight is refused as a conflict in the shared error body, which carries that job in
+   * objects.job, as it carries a validation refusal's findings. Both answers say where to poll the job.
+   */
+  public static Response answer(InclusionSubgraphRegenerationManager.StartResult result) {
+    URI statusUri = URI.create("/command/regenerate-inclusion-subgraph/" + result.job().getId());
+    if (result.accepted()) {
+      return Response.accepted(result.job()).location(statusUri).build();
+    }
+    return CedarResponse.conflict()
+        .message("An inclusion subgraph regeneration is already queued or running, so no second one was started.")
+        .object("job", result.job())
+        .header(HttpHeaders.LOCATION, statusUri)
+        .build();
+  }
+
+  private static final String UNAUTHORIZED = "The request carries no valid credentials";
+  private static final String NOT_ACCEPTABLE = "The request does not accept a JSON response";
+  private static final String RATE_LIMITED = "The deployment limits each user's request rate, and the caller "
+      + "exceeded it";
+  private static final String INTERNAL_ERROR = "Internal server error";
+  private static final String UNAVAILABLE = "The graph database or another service the request depends on is "
+      + "unavailable";
 
   @GET
   @Timed
