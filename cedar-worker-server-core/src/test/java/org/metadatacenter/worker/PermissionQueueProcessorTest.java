@@ -1,6 +1,7 @@
 package org.metadatacenter.worker;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.metadatacenter.config.CacheServerPersistent;
@@ -32,6 +33,7 @@ import static org.mockito.Mockito.verify;
  * thread running or hanging shutdown.
  */
 @Timeout(60)
+@Tag("integration")
 class PermissionQueueProcessorTest {
 
   private static final long TEST_RETRY_DELAY_MILLIS = 10;

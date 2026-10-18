@@ -1,6 +1,7 @@
 package org.metadatacenter.worker;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.metadatacenter.id.CedarTemplateId;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.verify;
  * silent - either wasted reindexing or a stale recommender.
  */
 @Timeout(90)
+@Tag("integration")
 class ValuerecommenderReindexQueueProcessorTest {
 
   private static final long TEST_POLL_INTERVAL_MILLIS = 10;

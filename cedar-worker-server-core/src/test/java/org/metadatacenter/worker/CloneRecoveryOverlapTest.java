@@ -1,5 +1,6 @@
 package org.metadatacenter.worker;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.metadatacenter.id.CedarTemplateId;
@@ -19,6 +20,7 @@ import static org.mockito.Mockito.*;
 
 /** Two actual processors and real Redis, with a delayed old claimant. */
 @Timeout(30)
+@Tag("integration")
 class CloneRecoveryOverlapTest {
   @Test void aReplacementCompletingARecoveredClaimMustFenceTheOldConsumer() throws Exception {
     try (var redis = EmbeddedRedis.start()) {

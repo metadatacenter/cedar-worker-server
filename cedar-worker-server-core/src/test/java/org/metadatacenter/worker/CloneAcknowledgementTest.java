@@ -2,6 +2,7 @@ package org.metadatacenter.worker;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Tag;
 import org.metadatacenter.id.CedarTemplateId;
 import org.metadatacenter.server.queue.util.CloneInstancesQueueService;
 import org.metadatacenter.server.queue.util.EmbeddedRedis;
@@ -19,6 +20,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /** A failure after successful side effects must not replay non-idempotent cloning. */
+@Tag("integration")
 class CloneAcknowledgementTest {
 
   // The retry is under test, not its production delay.

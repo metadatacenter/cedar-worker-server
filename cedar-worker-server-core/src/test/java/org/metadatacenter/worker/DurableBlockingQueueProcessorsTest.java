@@ -1,6 +1,7 @@
 package org.metadatacenter.worker;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.metadatacenter.id.CedarTemplateId;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @Timeout(30)
+@Tag("integration")
 class DurableBlockingQueueProcessorsTest {
 
   // The retry is under test, not its production delay.
