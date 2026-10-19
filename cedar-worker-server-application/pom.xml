@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.metadatacenter</groupId>
     <artifactId>cedar-worker-server</artifactId>
-    <version>2.9.25</version>
+    <version>2.9.26</version>
   </parent>
 
   <groupId>org.metadatacenter</groupId>
@@ -35,11 +35,6 @@
     <dependency>
       <groupId>org.metadatacenter</groupId>
       <artifactId>cedar-worker-server-core</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.metadatacenter</groupId>
-      <artifactId>cedar-server-globals-library</artifactId>
     </dependency>
 
     <dependency>
@@ -92,9 +87,10 @@
     </dependency>
 
     <!--
-      Direct declaration required: the server stack transitively pins JNA 4.2.1 (no arm64
-      slice), and only a direct dependency wins Maven's mediation for the test classpath. The
-      version must match the one cedar-test-support-library declares.
+      JNA reaches the test classpath through the embedded Neo4j in cedar-test-support-library, at
+      the version cedar-parent manages. The OpenSearch server jar also declares it at compile
+      scope, and a direct declaration's scope wins, so this test-scoped one keeps JNA off the
+      runtime classpath and out of the shaded jar.
     -->
     <dependency>
       <groupId>net.java.dev.jna</groupId>
@@ -141,11 +137,6 @@
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>
       <artifactId>log4j-core</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.javassist</groupId>
-      <artifactId>javassist</artifactId>
     </dependency>
 
     <!-- OpenAPI annotations on the resource classes. Version managed in cedar-parent. -->
