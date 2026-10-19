@@ -3,7 +3,7 @@
   "info" : {
     "description" : "Better Metadata - Better Science\n\nThe worker server runs the background jobs the rest of CEDAR cannot do inside a request: work\nthat takes longer than a caller should wait, and that must survive being interrupted.\n\nIts endpoints start a job and report on one. They are restricted to administrators.\n",
     "title" : "CEDAR Worker Server API",
-    "version" : "2.9.24"
+    "version" : "2.9.25"
   },
   "paths" : {
     "/" : {
@@ -57,7 +57,7 @@
                 }
               }
             },
-            "description" : "Unauthorized"
+            "description" : "The request carries no valid credentials"
           },
           "403" : {
             "content" : {
@@ -69,15 +69,25 @@
             },
             "description" : "The caller is not an administrator"
           },
+          "406" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "The request does not accept a JSON response"
+          },
           "409" : {
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/InclusionSubgraphJob"
+                  "$ref" : "#/components/schemas/CedarError"
                 }
               }
             },
-            "description" : "A regeneration is already running; the job returned is that one, not a new one",
+            "description" : "A regeneration is already queued or running, so no second one was started. The body's objects.job holds that job.",
             "headers" : {
               "Location" : {
                 "description" : "Where to poll the running job's status.",
@@ -88,6 +98,16 @@
               }
             }
           },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "The deployment limits each user's request rate, and the caller exceeded it"
+          },
           "500" : {
             "content" : {
               "application/json" : {
@@ -97,6 +117,16 @@
               }
             },
             "description" : "Internal server error"
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CedarError"
+                }
+              }
+            },
+            "description" : "The graph database or another service the request depends on is unavailable"
           }
         },
         "security" : [ {

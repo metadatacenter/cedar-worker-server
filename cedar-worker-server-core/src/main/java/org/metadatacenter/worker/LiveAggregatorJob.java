@@ -18,7 +18,7 @@ import java.util.concurrent.Executors;
  * deletion is the separate {@link LogPruneJob}. Disabled by default ({@code CEDAR_LOG_LIVE_AGG_ENABLED}).
  * <p>
  * A day is eligible once it has closed plus a settle margin, because the raw rows are written async off
- * Redis and mutate (start/end) — the margin lets a day fully drain before it is aggregated.
+ * Redis. Eligibility also requires complete request fragments; the margin alone cannot prove drain.
  */
 public class LiveAggregatorJob implements Managed {
 
@@ -87,7 +87,7 @@ public class LiveAggregatorJob implements Managed {
    * @param request true = log_request, false = log_cypher
    * @return true if a day was aggregated (caller should look again immediately for the next day)
    */
-  private boolean processDay(boolean request) {
+  boolean processDay(boolean request) {
     Instant earliest = request ? service.earliestUnaggregatedRequestTime()
         : service.earliestUnaggregatedCypherTime();
     if (earliest == null) {
@@ -111,7 +111,7 @@ public class LiveAggregatorJob implements Managed {
       }
     }
     if (total > 0) {
-      // day fully aggregated -> keep its slowest/error instances forever (survives the prune)
+      // This worker made progress; other workers may still own rows skipped by its SELECT.
       if (request) {
         service.captureLiveRequestDayOutliers(dayStart, dayEnd);
       } else {
@@ -119,7 +119,7 @@ public class LiveAggregatorJob implements Managed {
       }
     }
     log.info("Aggregated live {} day {} ({} rows).", request ? "request" : "cypher", dayStart, total);
-    return true;
+    return total > 0; // all eligible rows may be locked by another worker; use the idle poll interval
   }
 
   private boolean sleep(long ms) {

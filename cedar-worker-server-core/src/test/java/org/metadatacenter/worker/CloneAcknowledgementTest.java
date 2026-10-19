@@ -2,6 +2,7 @@ package org.metadatacenter.worker;
 
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.Tag;
 import org.metadatacenter.id.CedarTemplateId;
 import org.metadatacenter.server.queue.util.CloneInstancesQueueService;
 import org.metadatacenter.server.queue.util.EmbeddedRedis;
@@ -19,7 +20,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /** A failure after successful side effects must not replay non-idempotent cloning. */
+@Tag("integration")
 class CloneAcknowledgementTest {
+
+  // The retry is under test, not its production delay.
+  private static final long TEST_RETRY_DELAY_MILLIS = 10;
+
   @ParameterizedTest
   @ValueSource(strings = {"false", "throw-before", "throw-after"})
   void successfulCloneIsNotRepeatedWhenOnlyAcknowledgementFails(String failure) throws Exception {
@@ -41,7 +47,7 @@ class CloneAcknowledgementTest {
         return result;
       }).when(queue).acknowledge(anyString());
 
-      CloneInstancesQueueProcessor processor = new CloneInstancesQueueProcessor(queue, executor);
+      CloneInstancesQueueProcessor processor = new CloneInstancesQueueProcessor(queue, executor, TEST_RETRY_DELAY_MILLIS);
       processor.start();
       try {
         queue.enqueueEvent(new CloneInstancesQueueEvent(
@@ -72,7 +78,7 @@ class CloneAcknowledgementTest {
 
       CloneInstancesQueueService recovered = new CloneInstancesQueueService(config);
       CloneInstancesExecutorService executor = mock(CloneInstancesExecutorService.class);
-      CloneInstancesQueueProcessor processor = new CloneInstancesQueueProcessor(recovered, executor);
+      CloneInstancesQueueProcessor processor = new CloneInstancesQueueProcessor(recovered, executor, TEST_RETRY_DELAY_MILLIS);
       processor.start();
       try {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);

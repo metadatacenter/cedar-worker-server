@@ -4,6 +4,7 @@ import io.dropwizard.testing.DropwizardTestSupport;
 import io.dropwizard.testing.ResourceHelpers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.config.environment.CedarEnvironmentVariableProvider;
@@ -35,6 +36,7 @@ import static org.metadatacenter.util.test.PermissionMatrix.Actor.OWNER;
  * seeded graph also resolves the two test users at request time, which is what makes the 403 assertions
  * meaningful. Ports are OS-assigned so the test never collides with a running dev worker.
  */
+@Tag("integration")
 public class AdminCommandAuthorizationMatrixTest {
 
   static {

@@ -4,6 +4,7 @@ import io.dropwizard.testing.DropwizardTestSupport;
 import io.dropwizard.testing.ResourceHelpers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
 import org.metadatacenter.cedar.util.dw.CedarServerInsightReportResource;
@@ -21,6 +22,7 @@ import java.util.Map;
  * boots against the same in-process log store and seeded graph as the smoke test, because startup
  * itself opens both.
  */
+@Tag("integration")
 public class WorkerRoutesRespondTest {
 
   static {

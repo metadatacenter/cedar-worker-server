@@ -5,6 +5,7 @@ import io.dropwizard.testing.ResourceHelpers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.metadatacenter.model.SystemComponent;
 import org.metadatacenter.util.test.EmbeddedCedarMySql;
@@ -23,6 +24,7 @@ import java.util.Map;
  * configuration rot, this catches startup regressions in the permission and queue executor
  * wiring - the kind that previously surfaced only as a NullPointerException at boot.
  */
+@Tag("integration")
 public class WorkerServerApplicationSmokeTest {
 
   static {
