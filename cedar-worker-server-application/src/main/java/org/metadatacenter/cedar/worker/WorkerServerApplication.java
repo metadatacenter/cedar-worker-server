@@ -36,15 +36,12 @@ import org.metadatacenter.server.search.permission.SearchPermissionExecutorServi
 import org.metadatacenter.server.search.util.IndexRebuildRegistry;
 import org.metadatacenter.server.search.util.IndexUtils;
 import org.metadatacenter.server.search.util.RedisIndexRebuildStore;
-import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexExecutorService;
-import org.metadatacenter.server.valuerecommender.ValuerecommenderReindexQueueService;
 import org.metadatacenter.worker.AppLoggerQueueProcessor;
 import org.metadatacenter.worker.CloneInstancesQueueProcessor;
 import org.metadatacenter.worker.HistoricalBackfillJob;
 import org.metadatacenter.worker.LiveAggregatorJob;
 import org.metadatacenter.worker.LogPruneJob;
 import org.metadatacenter.worker.PermissionQueueProcessor;
-import org.metadatacenter.worker.ValuerecommenderReindexQueueProcessor;
 
 import java.util.List;
 import java.util.Map;
@@ -60,8 +57,6 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
   private static CloneInstancesQueueService cloneInstancesQueueService;
   private static CloneInstancesExecutorService cloneInstancesExecutorService;
   private static AppLoggerExecutorService appLoggerExecutorService;
-  private static ValuerecommenderReindexQueueService valuerecommenderQueueService;
-  private static ValuerecommenderReindexExecutorService valuerecommenderExecutorService;
   private static InclusionSubgraphRegenerationManager inclusionSubgraphRegenerationManager;
 
   public static void main(String[] args) throws Exception {
@@ -108,13 +103,11 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     IndexUtils indexUtils = new IndexUtils(cedarConfig);
     NodeSearchingService nodeSearchingService = indexUtils.getNodeSearchingService();
     NodeIndexingService nodeIndexingService = indexUtils.getNodeIndexingService();
-    ValuerecommenderReindexQueueService valuerecommenderReindexQueueService =
-        new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
 
     searchPermissionExecutorService = new SearchPermissionExecutorService(cedarConfig, indexUtils,
         nodeSearchingService, nodeIndexingService);
 
-    CloneInstancesExecutorService.injectServices(nodeIndexingService, valuerecommenderReindexQueueService);
+    CloneInstancesExecutorService.injectServices(nodeIndexingService);
     cloneInstancesQueueService = new CloneInstancesQueueService(cedarConfig.getCacheConfig().getPersistent());
     cloneInstancesExecutorService = new CloneInstancesExecutorService(cedarConfig);
 
@@ -129,12 +122,6 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
         .create(LogAggregationService.class,
             new Class[]{AggregationRollupDAO.class, LogAggregationStateDAO.class},
             new Object[]{aggregationRollupDAO, logAggregationStateDAO});
-
-    valuerecommenderQueueService =
-        new ValuerecommenderReindexQueueService(cedarConfig.getCacheConfig().getPersistent());
-    valuerecommenderExecutorService = new ValuerecommenderReindexExecutorService(cedarConfig,
-        valuerecommenderQueueService);
-    valuerecommenderExecutorService.init(userService);
 
     inclusionSubgraphRegenerationManager = new InclusionSubgraphRegenerationManager(cedarConfig, userService);
   }
@@ -176,10 +163,6 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     LogPruneJob logPruneJob = new LogPruneJob(logAggregationService);
     environment.lifecycle().manage(logPruneJob);
 
-    ValuerecommenderReindexQueueProcessor valuerecommenderReindexQueueProcessor =
-        new ValuerecommenderReindexQueueProcessor(valuerecommenderQueueService, valuerecommenderExecutorService);
-    environment.lifecycle().manage(valuerecommenderReindexQueueProcessor);
-
     // Neo4j is probed for every microservice by the shared bootstrap. The two below are this
     // server's own: it consumes the Redis queues and writes the OpenSearch indexes, so it has
     // nothing left to do when either is gone.
@@ -189,15 +172,13 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     environment.healthChecks().register("opensearch",
         CedarDependencyHealthCheck.gating("OpenSearch", opensearch::verifyConnectivity));
     environment.healthChecks().register("queue-consumers", new WorkerQueueConsumersHealthCheck(
-        List.of(searchPermissionProcessor, cloneInstancesQueueProcessor,
-            appLoggerQueueProcessor, valuerecommenderReindexQueueProcessor)));
+        List.of(searchPermissionProcessor, cloneInstancesQueueProcessor, appLoggerQueueProcessor)));
     // Separate from the consumers, and deliberately not gating: a parked message is a backlog to
     // look at, not a server that cannot serve. See WorkerDeadLetterHealthCheck.
     environment.healthChecks().register("queue-dead-letter", new WorkerDeadLetterHealthCheck(
         Map.of(
             "search-permission", permissionQueueService::deadLetterCount,
             "clone-instances", cloneInstancesQueueService::deadLetterCount,
-            "app-log", appLoggerQueueService::deadLetterCount,
-            "value-recommender", valuerecommenderQueueService::deadLetterCount)));
+            "app-log", appLoggerQueueService::deadLetterCount)));
   }
 }

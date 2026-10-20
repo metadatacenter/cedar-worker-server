@@ -71,13 +71,13 @@ class WorkerHealthChecksTest {
   @Test
   void queuesAreNamedInAStableOrder() {
     HealthCheck.Result result = new WorkerDeadLetterHealthCheck(Map.of(
-        "value-recommender", () -> 1L,
+        "search-permission", () -> 1L,
         "app-log", () -> 2L,
-        "search-permission", () -> 3L)).check();
+        "clone-instances", () -> 3L)).check();
 
     String message = result.getMessage();
-    assertTrue(message.indexOf("app-log") < message.indexOf("search-permission"));
-    assertTrue(message.indexOf("search-permission") < message.indexOf("value-recommender"));
+    assertTrue(message.indexOf("app-log") < message.indexOf("clone-instances"));
+    assertTrue(message.indexOf("clone-instances") < message.indexOf("search-permission"));
   }
 
   /**

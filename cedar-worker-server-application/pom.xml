@@ -61,11 +61,6 @@
 
     <dependency>
       <groupId>org.metadatacenter</groupId>
-      <artifactId>cedar-valuerecommender-operations-library</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.metadatacenter</groupId>
       <artifactId>cedar-inclusion-subgraph-library</artifactId>
     </dependency>
 
