@@ -15,8 +15,8 @@
   <name>CEDAR Worker Server Core</name>
 
   <properties>
-    <!-- Line coverage measured on 2026-10-19: 56.9%. The build fails below this floor. -->
-    <cedar.coverage.line.minimum>0.54</cedar.coverage.line.minimum>
+    <!-- Line coverage measured on 2026-10-19: 92.8%. The build fails below this floor. -->
+    <cedar.coverage.line.minimum>0.90</cedar.coverage.line.minimum>
   </properties>
 
   <dependencies>
