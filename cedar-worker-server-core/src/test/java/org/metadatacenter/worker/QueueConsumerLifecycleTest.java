@@ -197,8 +197,7 @@ class QueueConsumerLifecycleTest {
   /** Cloning is not idempotent: a completed clone retries only its acknowledgement, until the consumer stops. */
   @Test
   void aCompletedCloneWaitsForItsAcknowledgementWithoutCloningAgain() throws Exception {
-    QueueServiceWithBlockingQueue queue = startWith(Consumer.CLONE_INSTANCES, 10, false);
-    doReturn(false).when(queue).acknowledge(anyString());
+    QueueServiceWithBlockingQueue queue = startWith(Consumer.CLONE_INSTANCES, 10, false, true);
 
     enqueue(Consumer.CLONE_INSTANCES, queue);
     verify(queue, timeout(20_000).atLeast(3)).acknowledge(anyString());
@@ -215,12 +214,24 @@ class QueueConsumerLifecycleTest {
    */
   private QueueServiceWithBlockingQueue startWith(Consumer consumer, long retryDelayMillis, boolean refuseDeadLetters)
       throws Exception {
+    return startWith(consumer, retryDelayMillis, refuseDeadLetters, false);
+  }
+
+  /**
+   * As above, and the queue also refuses every acknowledgement when asked to. The spy is stubbed before the consumer
+   * starts, because stubbing a spy that another thread is already calling can hand that thread the stub's answer.
+   */
+  private QueueServiceWithBlockingQueue startWith(Consumer consumer, long retryDelayMillis, boolean refuseDeadLetters,
+                                                  boolean refuseAcknowledgements) throws Exception {
     redis = EmbeddedRedis.start();
     config = QueueTestConfig.onPort(redis.port());
     reader = queue(consumer);
     QueueServiceWithBlockingQueue queue = spy(queue(consumer));
     if (refuseDeadLetters) {
       doReturn(false).when(queue).deadLetter(anyString());
+    }
+    if (refuseAcknowledgements) {
+      doReturn(false).when(queue).acknowledge(anyString());
     }
     running = switch (consumer) {
       case APP_LOG -> running(new AppLoggerQueueProcessor((AppLoggerQueueService) queue, appLogHandler(),
