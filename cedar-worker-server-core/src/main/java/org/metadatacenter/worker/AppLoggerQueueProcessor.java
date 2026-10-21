@@ -1,6 +1,7 @@
 package org.metadatacenter.worker;
 
 import io.dropwizard.lifecycle.Managed;
+import org.metadatacenter.server.logging.AppLogNotRetryableException;
 import org.metadatacenter.server.logging.AppLoggerExecutorService;
 import org.metadatacenter.server.logging.AppLoggerQueueService;
 import org.metadatacenter.server.logging.model.AppLogMessage;
@@ -143,7 +144,9 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
         return;
       } catch (Exception e) {
         markFailure();
-        if (attempt == MAX_HANDLING_ATTEMPTS) {
+        // A message the executor rejects as unwritable fails the same way every time. Each retry would hold up the
+        // single consumer for a second while the live logs queue behind it.
+        if (e instanceof AppLogNotRetryableException || attempt == MAX_HANDLING_ATTEMPTS) {
           deadLetter(rawMessage, e);
           return;
         }

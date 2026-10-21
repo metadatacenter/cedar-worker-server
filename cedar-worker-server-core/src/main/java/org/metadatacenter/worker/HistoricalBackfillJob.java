@@ -107,14 +107,18 @@ public class HistoricalBackfillJob implements Managed {
   }
 
   private boolean inWindow() {
-    if (windowStartHourUtc == windowEndHourUtc) {
+    return inWindow(windowStartHourUtc, windowEndHourUtc, Instant.now().atZone(ZoneOffset.UTC).getHour());
+  }
+
+  /** Whether the hour falls in the window from its start up to its end. Equal bounds mean always. */
+  static boolean inWindow(int startHour, int endHour, int hour) {
+    if (startHour == endHour) {
       return true; // always on
     }
-    int h = Instant.now().atZone(ZoneOffset.UTC).getHour();
-    if (windowStartHourUtc < windowEndHourUtc) {
-      return h >= windowStartHourUtc && h < windowEndHourUtc;
+    if (startHour < endHour) {
+      return hour >= startHour && hour < endHour;
     }
-    return h >= windowStartHourUtc || h < windowEndHourUtc; // window wraps past midnight
+    return hour >= startHour || hour < endHour; // window wraps past midnight
   }
 
   /** @return true if the sleep completed, false if interrupted/stopping. */
@@ -129,7 +133,7 @@ public class HistoricalBackfillJob implements Managed {
   }
 
 
-  private static int[] parseWindow(String spec) {
+  static int[] parseWindow(String spec) {
     try {
       if (spec == null || spec.isBlank()) {
         return new int[]{0, 0};

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.metadatacenter.id.CedarTemplateId;
 import org.metadatacenter.model.SystemComponent;
+import org.metadatacenter.server.logging.AppLogNotRetryableException;
 import org.metadatacenter.server.logging.AppLoggerExecutorService;
 import org.metadatacenter.server.logging.AppLoggerQueueService;
 import org.metadatacenter.server.logging.model.AppLogMessage;
@@ -106,6 +107,24 @@ class DurableBlockingQueueProcessorsTest {
 
     verify(executor, timeout(10_000).times(3)).handleLog(any());
     awaitDeadLetter(queue);
+    assertEquals(0, queue.inFlightCount());
+  }
+
+  @Test
+  void anAppLogMessageMarkedNotRetryableIsDeadLetteredWithoutARetry() throws Exception {
+    redis = EmbeddedRedis.start();
+    AppLoggerQueueService queue = new AppLoggerQueueService(QueueTestConfig.onPort(redis.port()));
+    AppLoggerExecutorService executor = mock(AppLoggerExecutorService.class);
+    doThrow(new AppLogNotRetryableException("Cannot serialize log exception", new IllegalArgumentException()))
+        .when(executor).handleLog(any());
+    logProcessor = new AppLoggerQueueProcessor(queue, executor, TEST_RETRY_DELAY_MILLIS);
+    logProcessor.start();
+
+    queue.enqueueEvent(new AppLogMessage(SystemComponent.SERVER_RESOURCE, AppLogType.RESPONSE_EXCEPTION,
+        AppLogSubType.FULL, "global", "local"));
+
+    awaitDeadLetter(queue);
+    verify(executor, times(1)).handleLog(any());
     assertEquals(0, queue.inFlightCount());
   }
 
