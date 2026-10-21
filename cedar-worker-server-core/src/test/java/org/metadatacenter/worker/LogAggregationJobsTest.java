@@ -19,13 +19,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.after;
-import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -159,46 +160,65 @@ class LogAggregationJobsTest {
   }
 
   @Test
-  void thePruneDeletesAggregatedRowsPastTheirRetention() {
+  void thePruneWalksEachTableInIdWindowsUpToTheEndOfItsRange() {
     configure(Map.of("CEDAR_LOG_PRUNE_ENABLED", "true", "CEDAR_LOG_PRUNE_RETENTION_DAYS", "10",
-        "CEDAR_LOG_PRUNE_BATCH", "50", "CEDAR_LOG_PRUNE_PAUSE_MS", "1", "CEDAR_LOG_PRUNE_IDLE_MS", "1"));
-    when(service.pruneRequests(any(), anyInt())).thenReturn(5, 0);
-    when(service.pruneCypher(any(), anyInt())).thenReturn(2, 0);
+        "CEDAR_LOG_PRUNE_BATCH", "50", "CEDAR_LOG_PRUNE_PAUSE_MS", "1", "CEDAR_LOG_PRUNE_IDLE_MS", "60000"));
+    when(service.requestPruneRange(any())).thenReturn(new long[]{100, 300});
+    when(service.pruneRequestWindow(eq(100L), eq(300L), any(), eq(50))).thenReturn(new long[]{150, 5});
+    when(service.pruneRequestWindow(eq(150L), eq(300L), any(), eq(50))).thenReturn(new long[]{-1, 0});
+    when(service.cypherPruneRange(any())).thenReturn(new long[]{7, 7});
     LogPruneJob prune = new LogPruneJob(service);
     Instant expected = Instant.now().minus(10, ChronoUnit.DAYS);
 
     prune.start();
     ArgumentCaptor<Instant> cutoff = ArgumentCaptor.forClass(Instant.class);
-    verify(service, timeout(10_000).atLeast(3)).pruneRequests(cutoff.capture(), eq(50));
-    verify(service, timeout(10_000).atLeast(3)).pruneCypher(any(), eq(50));
+    verify(service, timeout(10_000)).cypherPruneRange(cutoff.capture());
     prune.stop();
 
-    assertTrue(Duration.between(expected, cutoff.getAllValues().get(0)).abs().compareTo(Duration.ofMinutes(1)) < 0,
-        "the cutoff is the retention before now: " + cutoff.getAllValues().get(0));
+    verify(service, times(2)).pruneRequestWindow(anyLong(), anyLong(), any(), anyInt());
+    verify(service, never()).pruneCypherWindow(anyLong(), anyLong(), any(), anyInt());
+    assertTrue(Duration.between(expected, cutoff.getValue()).abs().compareTo(Duration.ofMinutes(1)) < 0,
+        "the cutoff is the retention before now: " + cutoff.getValue());
+  }
+
+  @Test
+  void aPrunePassStopsAtTheEndOfItsRangeWithoutAskingForMore() {
+    configure(Map.of());
+    when(service.cypherPruneRange(any())).thenReturn(new long[]{1, 5});
+    when(service.pruneCypherWindow(eq(1L), eq(5L), any(), eq(2000))).thenReturn(new long[]{5, 3});
+    LogPruneJob prune = new LogPruneJob(service);
+
+    assertEquals(3, prune.prunePass(false, Instant.now()));
+    verify(service, times(1)).pruneCypherWindow(anyLong(), anyLong(), any(), anyInt());
   }
 
   @Test
   void aFailedPruneIsTriedAgainAfterTheIdleInterval() {
     configure(Map.of("CEDAR_LOG_PRUNE_ENABLED", "true", "CEDAR_LOG_PRUNE_IDLE_MS", "1"));
-    when(service.pruneRequests(any(), anyInt())).thenThrow(new IllegalStateException("the log database is down"))
-        .thenReturn(0);
+    when(service.requestPruneRange(any())).thenThrow(new IllegalStateException("the log database is down"))
+        .thenReturn(new long[]{0, 0});
+    when(service.cypherPruneRange(any())).thenReturn(new long[]{0, 0});
     LogPruneJob prune = new LogPruneJob(service);
 
     prune.start();
-    verify(service, timeout(10_000).atLeast(2)).pruneRequests(any(), eq(2000));
+    verify(service, timeout(10_000).atLeast(2)).requestPruneRange(any());
+    verify(service, timeout(10_000).atLeast(1)).cypherPruneRange(any());
     prune.stop();
   }
 
   @Test
-  void stoppingThePruneEndsItsIdleWait() {
-    configure(Map.of("CEDAR_LOG_PRUNE_ENABLED", "true", "CEDAR_LOG_PRUNE_RETENTION_DAYS", "never"));
+  void stoppingThePruneEndsItsPauseAndItsPass() {
+    configure(Map.of("CEDAR_LOG_PRUNE_ENABLED", "true", "CEDAR_LOG_PRUNE_PAUSE_MS", "60000"));
+    when(service.requestPruneRange(any())).thenReturn(new long[]{0, 1_000_000});
+    when(service.pruneRequestWindow(anyLong(), anyLong(), any(), anyInt())).thenReturn(new long[]{2000, 10});
     LogPruneJob prune = new LogPruneJob(service);
 
     prune.start();
-    verify(service, timeout(10_000)).pruneCypher(any(), anyInt());
+    verify(service, timeout(10_000)).pruneRequestWindow(anyLong(), anyLong(), any(), eq(2000));
     prune.stop();
 
-    verify(service, after(200).times(1)).pruneRequests(any(), anyInt());
+    verify(service, after(200).times(1)).pruneRequestWindow(anyLong(), anyLong(), any(), anyInt());
+    verify(service, never()).cypherPruneRange(any());
   }
 
   @Test
