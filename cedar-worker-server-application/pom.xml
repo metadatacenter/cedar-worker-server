@@ -18,8 +18,8 @@
     <!-- Opt in to the cedar-shade execution managed in cedar-parent. -->
     <cedar.shade.phase>package</cedar.shade.phase>
     <cedar.shade.main.class>org.metadatacenter.cedar.worker.WorkerServerApplication</cedar.shade.main.class>
-    <!-- Line coverage measured on 2026-10-19: 89.1%. The build fails below this floor. -->
-    <cedar.coverage.line.minimum>0.87</cedar.coverage.line.minimum>
+    <!-- Line coverage measured on 2026-10-26: 91.1%. The build fails below this floor. -->
+    <cedar.coverage.line.minimum>0.89</cedar.coverage.line.minimum>
   </properties>
 
   <dependencies>
