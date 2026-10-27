@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class InclusionSubgraphRegenerationManagerTest {
@@ -77,6 +78,55 @@ class InclusionSubgraphRegenerationManagerTest {
 
     assertEquals("graph unavailable", job.getError());
     assertEquals(job, manager.find(job.getId()).orElseThrow());
+  }
+
+  @Test
+  void aFailureWithoutAMessageIsNamedByItsClass() throws Exception {
+    manager = new InclusionSubgraphRegenerationManager(() -> {
+      throw new IllegalStateException();
+    });
+    manager.start();
+
+    InclusionSubgraphRegenerationManager.Job job = manager.submit().job();
+    awaitStatus(job, InclusionSubgraphRegenerationManager.Status.FAILED);
+
+    assertEquals("IllegalStateException", job.getError());
+  }
+
+  @Test
+  void aManagerThatIsNotRunningRefusesAJobUntilItIsStartedAgain() throws Exception {
+    manager = new InclusionSubgraphRegenerationManager(() -> new RegenerateInclusionSubgraphTask.Outcome(0, List.of()));
+    manager.stop(); // stopping a manager that never started is harmless
+    assertThrows(IllegalStateException.class, manager::submit);
+
+    manager.start();
+    manager.start(); // a second start keeps the running executor
+    awaitStatus(manager.submit().job(), InclusionSubgraphRegenerationManager.Status.SUCCEEDED);
+
+    manager.stop();
+    assertThrows(IllegalStateException.class, manager::submit);
+
+    manager.start();
+    awaitStatus(manager.submit().job(), InclusionSubgraphRegenerationManager.Status.SUCCEEDED);
+  }
+
+  @Test
+  void theHistoryKeepsTheHundredMostRecentJobs() throws Exception {
+    manager = new InclusionSubgraphRegenerationManager(() -> new RegenerateInclusionSubgraphTask.Outcome(0, List.of()));
+    manager.start();
+
+    InclusionSubgraphRegenerationManager.Job first = null;
+    InclusionSubgraphRegenerationManager.Job last = null;
+    for (int i = 0; i < 101; i++) {
+      InclusionSubgraphRegenerationManager.StartResult result = manager.submit();
+      assertTrue(result.accepted(), "a finished job leaves room for the next");
+      last = result.job();
+      if (first == null) first = last;
+      awaitStatus(last, InclusionSubgraphRegenerationManager.Status.SUCCEEDED);
+    }
+
+    assertTrue(manager.find(first.getId()).isEmpty());
+    assertEquals(last, manager.find(last.getId()).orElseThrow());
   }
 
   private static void awaitStatus(InclusionSubgraphRegenerationManager.Job job,

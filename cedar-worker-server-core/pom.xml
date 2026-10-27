@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.metadatacenter</groupId>
     <artifactId>cedar-worker-server</artifactId>
-    <version>2.9.29</version>
+    <version>2.9.30</version>
   </parent>
 
   <groupId>org.metadatacenter</groupId>
@@ -17,6 +17,8 @@
   <properties>
     <!-- Line coverage measured on 2026-10-19: 92.8%. The build fails below this floor. -->
     <cedar.coverage.line.minimum>0.90</cedar.coverage.line.minimum>
+    <!-- Branch coverage measured on 2026-10-26: 82.5%. The build fails below this floor. -->
+    <cedar.coverage.branch.minimum>0.80</cedar.coverage.branch.minimum>
   </properties>
 
   <dependencies>

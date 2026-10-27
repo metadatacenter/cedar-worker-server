@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.metadatacenter</groupId>
     <artifactId>cedar-worker-server</artifactId>
-    <version>2.9.29</version>
+    <version>2.9.30</version>
   </parent>
 
   <groupId>org.metadatacenter</groupId>
@@ -18,8 +18,10 @@
     <!-- Opt in to the cedar-shade execution managed in cedar-parent. -->
     <cedar.shade.phase>package</cedar.shade.phase>
     <cedar.shade.main.class>org.metadatacenter.cedar.worker.WorkerServerApplication</cedar.shade.main.class>
-    <!-- Line coverage measured on 2026-10-19: 89.1%. The build fails below this floor. -->
-    <cedar.coverage.line.minimum>0.87</cedar.coverage.line.minimum>
+    <!-- Line coverage measured on 2026-10-26: 91.1%. The build fails below this floor. -->
+    <cedar.coverage.line.minimum>0.89</cedar.coverage.line.minimum>
+    <!-- Branch coverage measured on 2026-10-26: 90.7%. The build fails below this floor. -->
+    <cedar.coverage.branch.minimum>0.88</cedar.coverage.branch.minimum>
   </properties>
 
   <dependencies>
