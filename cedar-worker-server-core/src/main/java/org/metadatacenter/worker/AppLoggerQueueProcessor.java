@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -49,6 +50,10 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
   private static final int RETRY_DELAY_SECONDS = 10;
   private static final int MAX_HANDLING_ATTEMPTS = 3;
   private static final int HANDLING_RETRY_DELAY_MILLIS = 1000;
+  // A request logs a dozen messages, so a backlog is the normal state under any load, and one commit
+  // per message is what bounded this consumer. The batch is small enough to hold its row locks only
+  // briefly, which the live aggregator reading the same rows depends on.
+  static final int BATCH_SIZE = 200;
 
   private void digestMessages() {
     log.info("AppLoggerQueueProcessor.start()");
@@ -83,14 +88,21 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
     List<String> logMessages;
     while (doProcessing) {
       logMessages = appLoggerQueueService.waitForMessages();
-      AppLogMessage appLog = null;
-      if (logMessages != null && !logMessages.isEmpty()) {
-        String value = logMessages.get(1);
-        if (!doProcessing) {
-          // Leave a message claimed during shutdown in the processing list. The next worker
-          // initialization recovers it ahead of newer work, so shutdown cannot discard it.
-          break;
-        }
+      if (logMessages == null || logMessages.isEmpty()) {
+        continue;
+      }
+      if (!doProcessing) {
+        // Leave a message claimed during shutdown in the processing list. The next worker
+        // initialization recovers it ahead of newer work, so shutdown cannot discard it.
+        break;
+      }
+      List<String> claimed = new ArrayList<>();
+      claimed.add(logMessages.get(1));
+      claimed.addAll(appLoggerQueueService.claimAvailableMessages(BATCH_SIZE - 1));
+      List<AppLogMessage> messages = new ArrayList<>();
+      List<String> rawMessages = new ArrayList<>();
+      for (String value : claimed) {
+        AppLogMessage appLog = null;
         Exception messageError = null;
         try {
           appLog = JsonMapper.TOLERANT_MAPPER.readValue(value, AppLogMessage.class);
@@ -100,12 +112,45 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
           messageError = e;
         }
         if (appLog != null) {
-          handleWithRetries(appLog, value);
+          messages.add(appLog);
+          rawMessages.add(value);
         } else if (doProcessing) {
           log.warn("Unable to handle message, it is null.");
           deadLetter(value, messageError == null
               ? new IllegalArgumentException("The application log message was null") : messageError);
         }
+      }
+      if (!doProcessing) {
+        break;
+      }
+      if (messages.size() == 1) {
+        handleWithRetries(messages.get(0), rawMessages.get(0));
+      } else if (!messages.isEmpty()) {
+        handleBatch(messages, rawMessages);
+      }
+    }
+  }
+
+  private void handleBatch(List<AppLogMessage> messages, List<String> rawMessages) {
+    boolean applied = false;
+    try {
+      appLoggerExecutorService.handleLogs(messages);
+      applied = true;
+    } catch (Exception e) {
+      markFailure();
+      // One unwritable message must not park its neighbours, so each is handled on its own.
+      log.warn("An application log batch of {} failed; handling its messages one at a time", messages.size(), e);
+    }
+    if (applied) {
+      for (String rawMessage : rawMessages) {
+        if (!appLoggerQueueService.acknowledge(rawMessage)) {
+          throw new IllegalStateException("The processed batch could not be acknowledged");
+        }
+      }
+      markSuccess();
+    } else {
+      for (int i = 0; i < messages.size() && doProcessing; i++) {
+        handleWithRetries(messages.get(i), rawMessages.get(i));
       }
     }
   }
