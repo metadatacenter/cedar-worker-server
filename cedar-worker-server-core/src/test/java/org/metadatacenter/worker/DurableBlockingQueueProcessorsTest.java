@@ -21,6 +21,8 @@ import org.metadatacenter.server.resource.CloneInstancesQueueEvent;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
@@ -126,6 +128,59 @@ class DurableBlockingQueueProcessorsTest {
     awaitDeadLetter(queue);
     verify(executor, times(1)).handleLog(any());
     assertEquals(0, queue.inFlightCount());
+  }
+
+  private static AppLogMessage logMessage(String localRequestId) {
+    return new AppLogMessage(SystemComponent.SERVER_RESOURCE, AppLogType.REQUEST_FILTER, AppLogSubType.END,
+        "global", localRequestId);
+  }
+
+  private static void awaitNothingInFlight(AppLoggerQueueService queue) throws InterruptedException {
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (queue.inFlightCount() != 0 && System.currentTimeMillis() < deadline) {
+      Thread.sleep(20);
+    }
+    assertEquals(0, queue.inFlightCount());
+  }
+
+  @Test
+  void aWaitingBacklogIsHandedOverTogetherAndAcknowledged() throws Exception {
+    redis = EmbeddedRedis.start();
+    AppLoggerQueueService queue = new AppLoggerQueueService(QueueTestConfig.onPort(redis.port()));
+    AppLoggerExecutorService executor = mock(AppLoggerExecutorService.class);
+    // Queued before the consumer starts, so all five are waiting when it makes its first claim.
+    for (int number = 1; number <= 5; number++) {
+      queue.enqueueEvent(logMessage("local-" + number));
+    }
+    logProcessor = new AppLoggerQueueProcessor(queue, executor, TEST_RETRY_DELAY_MILLIS);
+    logProcessor.start();
+
+    verify(executor, timeout(10_000).times(1)).handleLogs(argThat(batch -> batch.size() == 5
+        && batch.get(0).getLocalRequestId().equals("local-1") && batch.get(4).getLocalRequestId().equals("local-5")));
+    awaitNothingInFlight(queue);
+    verify(executor, never()).handleLog(any());
+    assertEquals(0, queue.deadLetterCount());
+  }
+
+  @Test
+  void aFailedBatchIsHandledOneMessageAtATimeSoOnlyTheUnwritableMessageParks() throws Exception {
+    redis = EmbeddedRedis.start();
+    AppLoggerQueueService queue = new AppLoggerQueueService(QueueTestConfig.onPort(redis.port()));
+    AppLoggerExecutorService executor = mock(AppLoggerExecutorService.class);
+    doThrow(new IllegalStateException("the transaction rolled back")).when(executor).handleLogs(any());
+    doThrow(new AppLogNotRetryableException("Cannot serialize log exception", new IllegalArgumentException()))
+        .when(executor).handleLog(argThat(message -> message.getLocalRequestId().equals("unwritable")));
+    for (String localRequestId : new String[]{"first", "unwritable", "third"}) {
+      queue.enqueueEvent(logMessage(localRequestId));
+    }
+    logProcessor = new AppLoggerQueueProcessor(queue, executor, TEST_RETRY_DELAY_MILLIS);
+    logProcessor.start();
+
+    awaitDeadLetter(queue);
+    awaitNothingInFlight(queue);
+    verify(executor, times(1)).handleLogs(any());
+    verify(executor, times(3)).handleLog(any());
+    assertEquals(1, queue.deadLetterCount());
   }
 
   private static void awaitDeadLetter(org.metadatacenter.server.queue.util.QueueServiceWithBlockingQueue queue)
