@@ -2,25 +2,29 @@ package org.metadatacenter.cedar.worker;
 
 import io.dropwizard.testing.DropwizardTestSupport;
 import io.dropwizard.testing.ResourceHelpers;
+import org.glassfish.jersey.server.ResourceConfig;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
-import org.metadatacenter.cedar.util.dw.CedarServerInsightReportResource;
+import org.metadatacenter.cedar.util.dw.CedarMicroserviceIndexResource;
 import org.metadatacenter.model.SystemComponent;
 import org.metadatacenter.util.test.EmbeddedCedarMySql;
 import org.metadatacenter.util.test.EmbeddedCedarNeo4j;
 import org.metadatacenter.util.test.RouteSurface;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Route safety net: probes every worker command and shared diagnostic endpoint unauthenticated and
- * requires each to answer 401. A 404/405 means the route vanished or changed verb; any other status
- * means an endpoint lost its authentication assertion. The probes need no fixture; the application
- * boots against the same in-process log store and seeded graph as the smoke test, because startup
- * itself opens both.
+ * Route safety net: probes every endpoint of every resource the worker registers, its commands and
+ * the server report, health check and insight resources the shared bootstrap adds, unauthenticated,
+ * and requires each to answer 401. A 404/405 means the route vanished or changed verb; any other
+ * status means an endpoint lost its authentication assertion. The probes need no fixture; the
+ * application boots against the same in-process log store and seeded graph as the smoke test,
+ * because startup itself opens both.
  */
 @Tag("integration")
 public class WorkerRoutesRespondTest {
@@ -55,12 +59,30 @@ public class WorkerRoutesRespondTest {
 
   @Test
   public void everyRouteRejectsAnUnauthenticatedRequest() {
+    List<Class<?>> resources = registeredResourceClasses();
+    Assertions.assertTrue(resources.size() > 1, "No resource classes were found on the booted application: "
+        + resources);
     RouteSurface.assertEveryRouteAnswers(
         "http://localhost:" + SERVER.getLocalPort(),
-        RouteSurface.endpoints(
-            CommandInclusionSubgraphResource.class,
-            CedarServerInsightReportResource.class),
+        RouteSurface.endpoints(resources),
         401);
+  }
+
+  /**
+   * Every resource class the booted application registers, its own and those the shared bootstrap
+   * adds, read from Jersey rather than listed by hand. The index resource is left out: it serves the
+   * server's public index and asserts no login.
+   */
+  private static List<Class<?>> registeredResourceClasses() {
+    ResourceConfig resourceConfig = SERVER.getEnvironment().jersey().getResourceConfig();
+    List<Object> registeredComponents = new ArrayList<>();
+    registeredComponents.addAll(resourceConfig.getInstances());
+    registeredComponents.addAll(resourceConfig.getSingletons());
+    registeredComponents.addAll(resourceConfig.getClasses());
+    registeredComponents.addAll(resourceConfig.getResources());
+    return RouteSurface.registeredResourceClasses(registeredComponents, "org.metadatacenter").stream()
+        .filter(resourceClass -> !CedarMicroserviceIndexResource.class.isAssignableFrom(resourceClass))
+        .toList();
   }
 
 }
