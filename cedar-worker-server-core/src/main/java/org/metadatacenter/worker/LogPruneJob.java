@@ -6,10 +6,12 @@ import org.metadatacenter.server.logging.agg.LogAggregationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Deletes raw log rows that are BOTH aggregated ({@code aggregatedAt} set) AND older than the retention
@@ -60,6 +62,16 @@ public class LogPruneJob implements Managed {
     if (executor != null) {
       executor.shutdownNow();
     }
+  }
+
+  /**
+   * Waits for the job's run to end, as it does on its own when the job is disabled and after
+   * {@link #stop()} otherwise, and answers whether it ended within the timeout. Once it has, the job
+   * makes no further call, so a test can count the calls it made.
+   */
+  boolean awaitEnd(Duration timeout) throws InterruptedException {
+    executor.shutdown();
+    return executor.awaitTermination(timeout.toMillis(), TimeUnit.MILLISECONDS);
   }
 
   private void run() {

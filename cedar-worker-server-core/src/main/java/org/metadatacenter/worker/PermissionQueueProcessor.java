@@ -24,6 +24,7 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
   private final PermissionQueueService permissionQueueService;
   private final SearchPermissionExecutorService searchPermissionExecutorService;
   private final long handlingRetryDelayMillis;
+  private final long consumerRetryDelayMillis;
   // Written by the lifecycle thread in stop(), read by the processing thread in digestMessages():
   // must be volatile or the processing thread may never observe the stop and loop forever.
   private volatile boolean doProcessing;
@@ -41,9 +42,17 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
   PermissionQueueProcessor(PermissionQueueService permissionQueueService,
                            SearchPermissionExecutorService searchPermissionExecutorService,
                            long handlingRetryDelayMillis) {
+    this(permissionQueueService, searchPermissionExecutorService, handlingRetryDelayMillis, RETRY_DELAY_SECONDS * 1000L);
+  }
+
+  /** As above, waiting {@code consumerRetryDelayMillis} rather than ten seconds after the consumer fails. */
+  PermissionQueueProcessor(PermissionQueueService permissionQueueService,
+                           SearchPermissionExecutorService searchPermissionExecutorService,
+                           long handlingRetryDelayMillis, long consumerRetryDelayMillis) {
     this.permissionQueueService = permissionQueueService;
     this.searchPermissionExecutorService = searchPermissionExecutorService;
     this.handlingRetryDelayMillis = handlingRetryDelayMillis;
+    this.consumerRetryDelayMillis = consumerRetryDelayMillis;
     doProcessing = true;
   }
 
@@ -67,10 +76,10 @@ public class PermissionQueueProcessor implements Managed, QueueProcessorMonitor 
           // queue (Redis) outage suspends processing instead of ending it. An outage lasts across
           // many retries, so only the first failure carries a stack trace
           consumerFailureLogger.report(log, "The search permission queue consumer failed, probably because "
-              + "the queue (Redis) became unreachable. Retrying in " + RETRY_DELAY_SECONDS + " seconds.",
+              + "the queue (Redis) became unreachable. Retrying in " + consumerRetryDelayMillis + " ms.",
               "failures", e);
           try {
-            Thread.sleep(RETRY_DELAY_SECONDS * 1000L);
+            Thread.sleep(consumerRetryDelayMillis);
           } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             return;

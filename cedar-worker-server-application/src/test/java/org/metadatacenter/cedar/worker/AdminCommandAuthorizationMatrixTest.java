@@ -43,7 +43,6 @@ public class AdminCommandAuthorizationMatrixTest {
     EmbeddedCedarMySql.startAndRedirectEnvironment("CEDAR_LOG_MYSQL", Map.of(
         "CEDAR_WORKER_HTTP_PORT", "0",
         "CEDAR_WORKER_ADMIN_PORT", "0",
-        "CEDAR_WORKER_STOP_PORT", "0",
         "CEDAR_REDIS_PERSISTENT_PORT", "1"));
     EmbeddedCedarNeo4j.startRedirectAndSeed(SystemComponent.SERVER_WORKER);
   }

@@ -17,6 +17,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,9 +27,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -44,6 +46,9 @@ import static org.mockito.Mockito.when;
  */
 @Timeout(30)
 class LogAggregationJobsTest {
+
+  /** How long a job may take to end its run, which it does at once when disabled or stopped. */
+  private static final Duration END = Duration.ofSeconds(10);
 
   private static Map<String, String> workerEnvironment;
 
@@ -78,11 +83,10 @@ class LogAggregationJobsTest {
     backfill.start();
     live.start();
     prune.start();
-    Thread.sleep(200);
-    backfill.stop();
-    live.stop();
-    prune.stop();
 
+    assertTrue(backfill.awaitEnd(END), "a disabled backfill ends its run at once");
+    assertTrue(live.awaitEnd(END), "a disabled live aggregator ends its run at once");
+    assertTrue(prune.awaitEnd(END), "a disabled prune ends its run at once");
     verifyNoInteractions(service);
   }
 
@@ -115,27 +119,40 @@ class LogAggregationJobsTest {
         "CEDAR_LOG_BACKFILL_WINDOW_UTC", (hour + 2) % 24 + "-" + (hour + 3) % 24));
     HistoricalBackfillJob backfill = new HistoricalBackfillJob(service);
 
+    AtomicReference<Thread> jobThread = new AtomicReference<>();
+    doAnswer(call -> {
+      jobThread.set(Thread.currentThread());
+      return null;
+    }).when(service).initBackfillState(LogAggregationService.SRC_CYPHER_HIST);
+
     backfill.start();
-    verify(service, timeout(10_000)).initBackfillState(LogAggregationService.SRC_CYPHER_HIST);
-    verify(service, after(200).never()).runBackfillRequestBatch(anyInt());
+    // Outside its window the job sleeps until the window opens. Either it is found asleep having read
+    // nothing, or it has read a batch, which it must not have.
+    long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+    while (!asleep(jobThread.get()) && !called("runBackfillRequestBatch")) {
+      assertTrue(System.nanoTime() < deadline, "the backfill neither waited for its window nor read a batch");
+      Thread.onSpinWait();
+    }
     backfill.stop();
 
-    verify(service, after(200).never()).markBackfillComplete(any());
+    assertTrue(backfill.awaitEnd(END), "stopping ends the wait for the window");
+    verify(service, never()).runBackfillRequestBatch(anyInt());
+    verify(service, never()).markBackfillComplete(any());
     verify(service, never()).captureHistoryOutliers();
   }
 
   @Test
-  void aFailedBackfillBatchEndsTheRunWithoutMarkingItsHistoryDrained() {
+  void aFailedBackfillBatchEndsTheRunWithoutMarkingItsHistoryDrained() throws Exception {
     configure(Map.of("CEDAR_LOG_BACKFILL_ENABLED", "true", "CEDAR_LOG_BACKFILL_BATCH", "many",
         "CEDAR_LOG_BACKFILL_PAUSE_MS", "soon", "CEDAR_LOG_BACKFILL_WINDOW_UTC", "0-0"));
     when(service.runBackfillRequestBatch(anyInt())).thenThrow(new IllegalStateException("the log database is down"));
     HistoricalBackfillJob backfill = new HistoricalBackfillJob(service);
 
     backfill.start();
-    verify(service, timeout(10_000)).runBackfillRequestBatch(5000);
-    backfill.stop();
 
-    verify(service, after(200).never()).markBackfillComplete(any());
+    assertTrue(backfill.awaitEnd(END), "a failed batch ends the run");
+    verify(service).runBackfillRequestBatch(5000);
+    verify(service, never()).markBackfillComplete(any());
     verify(service, never()).runBackfillCypherBatch(anyInt());
     verify(service, never()).captureHistoryOutliers();
   }
@@ -207,7 +224,7 @@ class LogAggregationJobsTest {
   }
 
   @Test
-  void stoppingThePruneEndsItsPauseAndItsPass() {
+  void stoppingThePruneEndsItsPauseAndItsPass() throws Exception {
     configure(Map.of("CEDAR_LOG_PRUNE_ENABLED", "true", "CEDAR_LOG_PRUNE_PAUSE_MS", "60000"));
     when(service.requestPruneRange(any())).thenReturn(new long[]{0, 1_000_000});
     when(service.pruneRequestWindow(anyLong(), anyLong(), any(), anyInt())).thenReturn(new long[]{2000, 10});
@@ -217,7 +234,8 @@ class LogAggregationJobsTest {
     verify(service, timeout(10_000)).pruneRequestWindow(anyLong(), anyLong(), any(), eq(2000));
     prune.stop();
 
-    verify(service, after(200).times(1)).pruneRequestWindow(anyLong(), anyLong(), any(), anyInt());
+    assertTrue(prune.awaitEnd(END), "stopping ends the pause");
+    verify(service, times(1)).pruneRequestWindow(anyLong(), anyLong(), any(), anyInt());
     verify(service, never()).cypherPruneRange(any());
   }
 
@@ -264,7 +282,7 @@ class LogAggregationJobsTest {
   }
 
   @Test
-  void stoppingTheLiveAggregatorMidDayLeavesTheDayForTheNextStart() {
+  void stoppingTheLiveAggregatorMidDayLeavesTheDayForTheNextStart() throws Exception {
     configure(Map.of("CEDAR_LOG_LIVE_AGG_ENABLED", "true", "CEDAR_LOG_LIVE_AGG_PAUSE_MS", "60000"));
     when(service.earliestUnaggregatedCypherTime()).thenReturn(Instant.parse("2026-01-05T08:00:00Z"));
     when(service.aggregateLiveCypherBatch(any(), any(), anyInt())).thenReturn(10L);
@@ -274,7 +292,17 @@ class LogAggregationJobsTest {
     verify(service, timeout(10_000)).aggregateLiveCypherBatch(any(), any(), eq(2000));
     live.stop();
 
-    verify(service, after(200).times(1)).aggregateLiveCypherBatch(any(), any(), anyInt());
+    assertTrue(live.awaitEnd(END), "stopping ends the pause");
+    verify(service, times(1)).aggregateLiveCypherBatch(any(), any(), anyInt());
     verify(service, never()).captureLiveCypherDayOutliers(any(), any());
+  }
+
+  private static boolean asleep(Thread thread) {
+    return thread != null && thread.getState() == Thread.State.TIMED_WAITING;
+  }
+
+  private boolean called(String method) {
+    return mockingDetails(service).getInvocations().stream()
+        .anyMatch(call -> call.getMethod().getName().equals(method));
   }
 }

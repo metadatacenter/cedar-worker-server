@@ -26,6 +26,7 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
   private final AppLoggerQueueService appLoggerQueueService;
   private final AppLoggerExecutorService appLoggerExecutorService;
   private final long handlingRetryDelayMillis;
+  private final long consumerRetryDelayMillis;
   private volatile boolean doProcessing;
   private ExecutorService executor;
   private Future<?> workerFuture;
@@ -41,9 +42,17 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
   AppLoggerQueueProcessor(AppLoggerQueueService appLoggerQueueService,
                           AppLoggerExecutorService appLoggerExecutorService,
                           long handlingRetryDelayMillis) {
+    this(appLoggerQueueService, appLoggerExecutorService, handlingRetryDelayMillis, RETRY_DELAY_SECONDS * 1000L);
+  }
+
+  /** As above, waiting {@code consumerRetryDelayMillis} rather than ten seconds after the consumer fails. */
+  AppLoggerQueueProcessor(AppLoggerQueueService appLoggerQueueService,
+                          AppLoggerExecutorService appLoggerExecutorService,
+                          long handlingRetryDelayMillis, long consumerRetryDelayMillis) {
     this.appLoggerQueueService = appLoggerQueueService;
     this.appLoggerExecutorService = appLoggerExecutorService;
     this.handlingRetryDelayMillis = handlingRetryDelayMillis;
+    this.consumerRetryDelayMillis = consumerRetryDelayMillis;
     doProcessing = true;
   }
 
@@ -67,10 +76,10 @@ public class AppLoggerQueueProcessor implements Managed, QueueProcessorMonitor {
           // queue (Redis) outage suspends processing instead of ending it. An outage lasts across
           // many retries, so only the first failure carries a stack trace
           consumerFailureLogger.report(log, "The application log queue consumer failed, probably because "
-              + "the queue (Redis) became unreachable. Retrying in " + RETRY_DELAY_SECONDS + " seconds.",
+              + "the queue (Redis) became unreachable. Retrying in " + consumerRetryDelayMillis + " ms.",
               "failures", e);
           try {
-            Thread.sleep(RETRY_DELAY_SECONDS * 1000L);
+            Thread.sleep(consumerRetryDelayMillis);
           } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             return;
