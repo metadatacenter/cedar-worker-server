@@ -28,6 +28,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
 
+import static org.metadatacenter.constant.CedarPathParameters.PP_JOB_ID;
+
 @Path("/command")
 @Produces(MediaType.APPLICATION_JSON)
 @Tag(name = "Inclusion subgraph")
@@ -123,7 +125,7 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
   })
   public Response regenerationStatus(
       @Parameter(description = "Job identifier, as returned when the job was started.", required = true)
-      @PathParam("jobId") String jobId) throws CedarException {
+      @PathParam(PP_JOB_ID) String jobId) throws CedarException {
     CedarRequestContext c = buildRequestContext();
     AdminCommand.REGENERATE_INCLUSION_SUBGRAPH.enforce(c);
 
