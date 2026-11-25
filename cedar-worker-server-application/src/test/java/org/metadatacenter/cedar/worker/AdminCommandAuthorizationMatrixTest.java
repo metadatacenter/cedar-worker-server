@@ -14,8 +14,14 @@ import org.metadatacenter.util.test.EmbeddedCedarNeo4j;
 import org.metadatacenter.util.test.PermissionMatrix;
 import org.metadatacenter.util.test.TestAuthUtil;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.Map;
+import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.metadatacenter.util.test.PermissionMatrix.Actor.ANONYMOUS;
 import static org.metadatacenter.util.test.PermissionMatrix.Actor.OTHER_USER;
 import static org.metadatacenter.util.test.PermissionMatrix.Actor.OWNER;
@@ -51,6 +57,7 @@ public class AdminCommandAuthorizationMatrixTest {
       new DropwizardTestSupport<>(WorkerServerApplication.class, ResourceHelpers.resourceFilePath("test-config.yml"));
 
   private static Map<PermissionMatrix.Actor, String> actors;
+  private static String adminAuthHeader;
 
   @BeforeAll
   public static void oneTimeSetUp() throws Exception {
@@ -61,11 +68,23 @@ public class AdminCommandAuthorizationMatrixTest {
     actors = Map.of(
         OWNER, TestAuthUtil.getTestUser1AuthHeader(cedarConfig),
         OTHER_USER, TestAuthUtil.getTestUser2AuthHeader(cedarConfig));
+    adminAuthHeader = TestAuthUtil.getAdminUserAuthHeader(cedarConfig);
   }
 
   @AfterAll
   public static void oneTimeTearDown() {
     SERVER.after();
+  }
+
+  /** Reading a job runs nothing, so an administrator may be probed here. No job answers to this one. */
+  @Test
+  public void anAdministratorIsToldNoJobAnswersToAnUnknownIdentifier() throws Exception {
+    HttpResponse<String> response = HttpClient.newHttpClient().send(HttpRequest.newBuilder()
+            .uri(URI.create("http://localhost:" + SERVER.getLocalPort() + "/jobs/" + UUID.randomUUID()))
+            .header("Authorization", adminAuthHeader)
+            .GET().build(),
+        HttpResponse.BodyHandlers.ofString());
+    assertEquals(404, response.statusCode(), response.body());
   }
 
   @Test
@@ -75,6 +94,15 @@ public class AdminCommandAuthorizationMatrixTest {
         .expect(ANONYMOUS, 401)
         .expect(OWNER, 403)
         .expect(OTHER_USER, 403);
+    matrix.when("GET", "/jobs/00000000-0000-0000-0000-000000000000")
+        .expect(ANONYMOUS, 401)
+        .expect(OWNER, 403)
+        .expect(OTHER_USER, 403);
+    // The job's status moved to /jobs/{id}, and the path it had under the command is gone.
+    matrix.when("GET", "/command/regenerate-inclusion-subgraph/00000000-0000-0000-0000-000000000000")
+        .expect(ANONYMOUS, 404)
+        .expect(OWNER, 404)
+        .expect(OTHER_USER, 404);
     matrix.verify();
   }
 

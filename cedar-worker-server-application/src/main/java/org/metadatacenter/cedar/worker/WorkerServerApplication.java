@@ -8,6 +8,7 @@ import org.metadatacenter.cedar.util.dw.CedarHibernateBundle;
 import org.metadatacenter.cedar.util.dw.CedarDependencyHealthCheck;
 import org.metadatacenter.cedar.util.dw.CedarMicroserviceApplication;
 import org.metadatacenter.cedar.worker.resources.CommandInclusionSubgraphResource;
+import org.metadatacenter.cedar.worker.resources.JobsResource;
 import org.metadatacenter.config.CedarConfig;
 import org.metadatacenter.model.ServerName;
 import org.metadatacenter.server.logging.AppLoggerExecutorService;
@@ -137,6 +138,7 @@ public class WorkerServerApplication extends CedarMicroserviceApplication<Worker
     final CommandInclusionSubgraphResource commandInclusionsubgraph =
         new CommandInclusionSubgraphResource(cedarConfig, inclusionSubgraphRegenerationManager);
     environment.jersey().register(commandInclusionsubgraph);
+    environment.jersey().register(new JobsResource(cedarConfig, inclusionSubgraphRegenerationManager));
 
     PermissionQueueProcessor searchPermissionProcessor = new PermissionQueueProcessor(permissionQueueService,
         searchPermissionExecutorService);

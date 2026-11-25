@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenApiContractTest {
 
-  private static final String JOB = "#/components/schemas/InclusionSubgraphJob";
+  private static final String JOB = "#/components/schemas/JobStatus";
   private static final String CEDAR_ERROR = "#/components/schemas/CedarError";
 
   @Test
@@ -25,7 +25,9 @@ class OpenApiContractTest {
     JsonNode spec = readSpec();
     assertEquals(JOB, responseSchema(spec, "/command/regenerate-inclusion-subgraph", "post", "202"));
     assertEquals(JOB,
-        responseSchema(spec, "/command/regenerate-inclusion-subgraph/{jobId}", "get", "200"));
+        responseSchema(spec, "/jobs/{id}", "get", "200"));
+    assertTrue(spec.path("paths").path("/command/regenerate-inclusion-subgraph/{jobId}").isMissingNode(),
+        "the job's status moved to /jobs/{id}");
   }
 
   /**

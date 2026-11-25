@@ -46,11 +46,21 @@ class InclusionSubgraphRegenerationManagerTest {
     assertEquals(first.job().getId(), overlapping.job().getId());
     assertEquals(InclusionSubgraphRegenerationManager.Status.RUNNING, overlapping.job().getStatus());
     assertNull(overlapping.job().getUnreadableArtifacts());
+    JobStatus running = overlapping.job().toStatus();
+    assertEquals(JobStatus.State.RUNNING, running.state());
+    assertNotNull(running.startedAt());
+    assertNull(running.finishedAt());
 
     release.countDown();
     awaitStatus(first.job(), InclusionSubgraphRegenerationManager.Status.SUCCEEDED);
     assertNotNull(first.job().getCompletedAt());
     assertEquals(List.of(), first.job().getUnreadableArtifacts());
+    JobStatus complete = first.job().toStatus();
+    assertEquals(JobStatus.State.COMPLETE, complete.state());
+    assertEquals(first.job().getCompletedAt().toString(), complete.finishedAt());
+    assertEquals(JobStatus.INCLUSION_SUBGRAPH, complete.kind());
+    assertFalse(complete.overdue());
+    assertNull(complete.deadlineAt(), "a regeneration holds no claim with a deadline");
   }
 
   @Test
@@ -77,6 +87,8 @@ class InclusionSubgraphRegenerationManagerTest {
     awaitStatus(job, InclusionSubgraphRegenerationManager.Status.FAILED);
 
     assertEquals("graph unavailable", job.getError());
+    assertEquals(JobStatus.State.FAILED, job.toStatus().state());
+    assertEquals("graph unavailable", job.toStatus().failure());
     assertEquals(job, manager.find(job.getId()).orElseThrow());
   }
 

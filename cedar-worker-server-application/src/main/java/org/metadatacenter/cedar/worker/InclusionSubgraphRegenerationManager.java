@@ -62,6 +62,11 @@ public class InclusionSubgraphRegenerationManager implements Managed {
      */
     public List<String> getUnreadableArtifacts() { return unreadableArtifacts; }
 
+    /** This job in the shape every server that runs jobs reports one. */
+    public JobStatus toStatus() {
+      return JobStatus.of(this);
+    }
+
     private boolean isActive() {
       return status == Status.QUEUED || status == Status.RUNNING;
     }

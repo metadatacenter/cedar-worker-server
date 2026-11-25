@@ -2,7 +2,6 @@ package org.metadatacenter.cedar.worker.resources;
 
 import com.codahale.metrics.annotation.Timed;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -18,17 +17,13 @@ import org.metadatacenter.cedar.worker.InclusionSubgraphRegenerationManager;
 import org.metadatacenter.cedar.worker.security.AdminCommand;
 import org.metadatacenter.rest.context.CedarRequestContext;
 
-import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
-
-import static org.metadatacenter.constant.CedarPathParameters.PP_JOB_ID;
 
 @Path("/command")
 @Produces(MediaType.APPLICATION_JSON)
@@ -55,7 +50,7 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
           + "to administrators.")
   @ApiResponses({
       @ApiResponse(responseCode = "202", description = "A job was started",
-          content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob")),
+          content = @Content(schema = @Schema(ref = "#/components/schemas/JobStatus")),
           headers = @Header(name = "Location", description = "Where to poll this job's status.",
               schema = @Schema(type = "string"))),
       @ApiResponse(responseCode = "401", description = UNAUTHORIZED,
@@ -89,13 +84,13 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
    * objects.job, as it carries a validation refusal's findings. Both answers say where to poll the job.
    */
   public static Response answer(InclusionSubgraphRegenerationManager.StartResult result) {
-    URI statusUri = URI.create("/command/regenerate-inclusion-subgraph/" + result.job().getId());
+    URI statusUri = JobsResource.jobUri(result.job().getId());
     if (result.accepted()) {
-      return Response.accepted(result.job()).location(statusUri).build();
+      return Response.accepted(result.job().toStatus()).location(statusUri).build();
     }
     return CedarResponse.conflict()
         .message("An inclusion subgraph regeneration is already queued or running, so no second one was started.")
-        .object("job", result.job())
+        .object("job", result.job().toStatus())
         .header(HttpHeaders.LOCATION, statusUri)
         .build();
   }
@@ -107,32 +102,4 @@ public class CommandInclusionSubgraphResource extends AbstractWorkerResource {
   private static final String INTERNAL_ERROR = "Internal server error";
   private static final String UNAVAILABLE = "The graph database or another service the request depends on is "
       + "unavailable";
-
-  @GET
-  @Timed
-  @Path("/regenerate-inclusion-subgraph/{jobId}")
-  @Operation(summary = "Get the status of a regeneration job",
-      description = "Report where a regeneration job has got to. Jobs are held in memory, so an "
-          + "identifier from before the last restart is no longer known. Restricted to administrators.")
-  @ApiResponses({
-      @ApiResponse(responseCode = "200", description = "The job and its current state",
-          content = @Content(schema = @Schema(ref = "#/components/schemas/InclusionSubgraphJob"))),
-      @ApiResponse(responseCode = "401", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Unauthorized"),
-      @ApiResponse(responseCode = "403", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "The caller is not an administrator"),
-      @ApiResponse(responseCode = "404", description = "No job answers to this identifier",
-          content = @Content(schema = @Schema(implementation = CedarError.class))),
-      @ApiResponse(responseCode = "500", content = @Content(schema = @Schema(implementation = CedarError.class)), description = "Internal server error")
-  })
-  public Response regenerationStatus(
-      @Parameter(description = "Job identifier, as returned when the job was started.", required = true)
-      @PathParam(PP_JOB_ID) String jobId) throws CedarException {
-    CedarRequestContext c = buildRequestContext();
-    AdminCommand.REGENERATE_INCLUSION_SUBGRAPH.enforce(c);
-
-    return jobManager.find(jobId)
-        .map(job -> Response.ok(job).build())
-        .orElseGet(() -> CedarResponse.notFound()
-            .message("No inclusion-subgraph regeneration job answers to " + jobId)
-            .build());
-  }
 }

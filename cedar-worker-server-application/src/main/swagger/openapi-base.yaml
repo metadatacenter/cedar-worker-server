@@ -14,39 +14,140 @@ info:
   version: ${project.version}
 components:
   schemas:
-    InclusionSubgraphJob:
+    JobStatus:
       type: object
+      description: |
+        One job, in the shape every CEDAR server that runs jobs reports it in. `deadlineAt` and
+        `overdue` describe a running job and are empty otherwise. The properties after `failure`
+        belong to one kind of job each and are absent for the others.
       required:
-        - id
-        - submittedAt
-        - status
+        - jobId
+        - kind
+        - state
+        - overdue
       properties:
-        id:
+        jobId:
           type: string
-          format: uuid
-        submittedAt:
+        kind:
           type: string
-          format: date-time
-        status:
+          enum: [search-index, value-sets-import, inclusion-subgraph]
+        command:
           type: string
-          enum: [QUEUED, RUNNING, SUCCEEDED, FAILED]
+          nullable: true
+          description: The command that started the job.
+        state:
+          type: string
+          enum: [QUEUED, RUNNING, COMPLETE, FAILED, ABANDONED, INTERRUPTED]
+          description: |
+            ABANDONED is a job whose claim was reset with `POST /jobs/{id}/reset`, which may still be
+            running. INTERRUPTED is a job the server did not survive.
         startedAt:
           type: string
           format: date-time
           nullable: true
-        completedAt:
+        finishedAt:
           type: string
           format: date-time
           nullable: true
-        error:
+        deadlineAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: When a running job that reports nothing more will be believed to have stopped.
+        overdue:
+          type: boolean
+        failure:
           type: string
           nullable: true
+          description: What went wrong, when the state is FAILED, ABANDONED or INTERRUPTED.
+        progress:
+          allOf:
+            - $ref: '#/components/schemas/IndexingProgress'
+          description: How far a search index rebuild got.
+        importStatus:
+          type: string
+          enum: [NOT_YET_INITIATED, IN_PROGRESS, COMPLETE, ERROR]
+          description: A value sets import's state under the name the caDSR ingestor reads.
+        submittedAt:
+          type: string
+          format: date-time
+          description: When an inclusion-subgraph regeneration was asked for.
         unreadableArtifacts:
           type: array
-          description: "The artifacts a succeeded job left as they were because the artifact server answered something other than 200 for them. Their inclusion arcs were neither refreshed nor removed. Empty when every artifact was read; null until the job completes."
           nullable: true
+          description: |
+            The artifacts a completed inclusion-subgraph regeneration left as they were because the
+            artifact server answered something other than 200 for them. Their inclusion arcs were
+            neither refreshed nor removed. Empty when every artifact was read; null until the job
+            completes.
           items:
             type: string
+      additionalProperties: false
+    IndexingProgress:
+      type: object
+      description: |
+        How far a rebuild has got. Each phase carries its own counter, because what is being counted
+        changes with it: pages of resources while enumerating, resources while indexing, nothing at
+        all while promoting. `total` is -1 until the phase's denominator is known, and the rate and
+        estimate are absent until enough has been done to measure them.
+      required:
+        - phase
+        - processed
+        - total
+      properties:
+        phase:
+          type: string
+          enum: [PENDING, LOADING_VALUE_SETS, ENUMERATING, COMPARING, INDEXING, VERIFYING, PROMOTING, DONE]
+        phaseDescription:
+          type: string
+          description: The phase in words, so a client need not keep its own table of these names.
+        processed:
+          type: integer
+          format: int64
+        total:
+          type: integer
+          format: int64
+          description: The current phase's denominator, or -1 while it is not yet known.
+        percentComplete:
+          type: number
+          format: double
+          nullable: true
+        totalByType:
+          type: object
+          description: How many resources of each kind the work list holds.
+          additionalProperties:
+            type: integer
+            format: int64
+        processedByType:
+          type: object
+          description: How many of each kind have been done.
+          additionalProperties:
+            type: integer
+            format: int64
+        startedAt:
+          type: string
+          format: date-time
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          description: |
+            When the job last reported anything. This is what tells a slow rebuild from a stopped one,
+            and it is what the overdue deadline is measured from.
+        unitsPerSecond:
+          type: number
+          format: double
+          nullable: true
+          description: |
+            The rate over a trailing window rather than the whole run, absent until measurable. Null
+            and zero are different answers: only the second means no progress.
+        secondsRemaining:
+          type: integer
+          format: int64
+          nullable: true
+        estimatedFinishAt:
+          type: string
+          format: date-time
+          nullable: true
       additionalProperties: false
   securitySchemes:
     api_key:

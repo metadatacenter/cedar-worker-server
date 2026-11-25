@@ -15,7 +15,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -40,11 +39,13 @@ class RegenerationAnswerTest {
     try {
       InclusionSubgraphRegenerationManager.StartResult first = manager.submit();
       assertTrue(started.await(10, TimeUnit.SECONDS));
-      URI statusUri = URI.create("/command/regenerate-inclusion-subgraph/" + first.job().getId());
+      URI statusUri = URI.create("/jobs/" + first.job().getId());
 
       Response accepted = CommandInclusionSubgraphResource.answer(first);
       assertEquals(202, accepted.getStatus());
-      assertSame(first.job(), accepted.getEntity());
+      JsonNode job = MAPPER.valueToTree(accepted.getEntity());
+      assertEquals(first.job().getId(), job.path("jobId").asText(), job.toString());
+      assertEquals("inclusion-subgraph", job.path("kind").asText(), job.toString());
       assertEquals(statusUri, accepted.getLocation());
 
       Response conflict = CommandInclusionSubgraphResource.answer(manager.submit());
@@ -57,8 +58,8 @@ class RegenerationAnswerTest {
       assertTrue(body.path("errorKey").isNull(), body.toString());
       assertEquals("An inclusion subgraph regeneration is already queued or running, so no second one was "
           + "started.", body.path("message").asText(), body.toString());
-      assertEquals(MAPPER.valueToTree(first.job()), body.at("/objects/job"), body.toString());
-      assertEquals("RUNNING", body.at("/objects/job/status").asText(), body.toString());
+      assertEquals(first.job().getId(), body.at("/objects/job/jobId").asText(), body.toString());
+      assertEquals("RUNNING", body.at("/objects/job/state").asText(), body.toString());
     } finally {
       release.countDown();
       manager.stop();

@@ -36,7 +36,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InclusionSubgraphJob"
+                $ref: "#/components/schemas/JobStatus"
           description: A job was started
           headers:
             Location:
@@ -98,55 +98,6 @@ paths:
       security:
       - api_key: []
       summary: Start regenerating the inclusion subgraph
-      tags:
-      - Inclusion subgraph
-  /command/regenerate-inclusion-subgraph/{jobId}:
-    get:
-      description: "Report where a regeneration job has got to. Jobs are held in memory,\
-        \ so an identifier from before the last restart is no longer known. Restricted\
-        \ to administrators."
-      operationId: regenerationStatus
-      parameters:
-      - description: "Job identifier, as returned when the job was started."
-        in: path
-        name: jobId
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InclusionSubgraphJob"
-          description: The job and its current state
-        "401":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CedarError"
-          description: Unauthorized
-        "403":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CedarError"
-          description: The caller is not an administrator
-        "404":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CedarError"
-          description: No job answers to this identifier
-        "500":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CedarError"
-          description: Internal server error
-      security:
-      - api_key: []
-      summary: Get the status of a regeneration job
       tags:
       - Inclusion subgraph
   /healthcheck:
@@ -344,6 +295,55 @@ paths:
       summary: Report JVM thread counts
       tags:
       - Service diagnostics
+  /jobs/{id}:
+    get:
+      description: "Report where a regeneration job has got to. Jobs are held in memory,\
+        \ so an identifier from before the last restart is no longer known. Restricted\
+        \ to administrators."
+      operationId: getJob
+      parameters:
+      - description: "Job identifier, as returned when the job was started."
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatus"
+          description: The job and its current state
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CedarError"
+          description: Unauthorized
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CedarError"
+          description: The caller is not an administrator
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CedarError"
+          description: No job answers to this identifier
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CedarError"
+          description: Internal server error
+      security:
+      - api_key: []
+      summary: Get the status of one job
+      tags:
+      - Jobs
 components:
   schemas:
     CedarError:
@@ -566,47 +566,166 @@ components:
       required:
       - status
       - statusCode
-    InclusionSubgraphJob:
+    IndexingProgress:
       type: object
       additionalProperties: false
+      description: |
+        How far a rebuild has got. Each phase carries its own counter, because what is being counted
+        changes with it: pages of resources while enumerating, resources while indexing, nothing at
+        all while promoting. `total` is -1 until the phase's denominator is known, and the rate and
+        estimate are absent until enough has been done to measure them.
       properties:
-        completedAt:
+        estimatedFinishAt:
           type: string
           format: date-time
           nullable: true
-        error:
+        lastUpdatedAt:
           type: string
+          format: date-time
+          description: |
+            When the job last reported anything. This is what tells a slow rebuild from a stopped one,
+            and it is what the overdue deadline is measured from.
+        percentComplete:
+          type: number
+          format: double
           nullable: true
-        id:
+        phase:
           type: string
-          format: uuid
+          enum:
+          - PENDING
+          - LOADING_VALUE_SETS
+          - ENUMERATING
+          - COMPARING
+          - INDEXING
+          - VERIFYING
+          - PROMOTING
+          - DONE
+        phaseDescription:
+          type: string
+          description: "The phase in words, so a client need not keep its own table\
+            \ of these names."
+        processed:
+          type: integer
+          format: int64
+        processedByType:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: How many of each kind have been done.
+        secondsRemaining:
+          type: integer
+          format: int64
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        total:
+          type: integer
+          format: int64
+          description: "The current phase's denominator, or -1 while it is not yet\
+            \ known."
+        totalByType:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+          description: How many resources of each kind the work list holds.
+        unitsPerSecond:
+          type: number
+          format: double
+          description: |
+            The rate over a trailing window rather than the whole run, absent until measurable. Null
+            and zero are different answers: only the second means no progress.
+          nullable: true
+      required:
+      - phase
+      - processed
+      - total
+    JobStatus:
+      type: object
+      additionalProperties: false
+      description: |
+        One job, in the shape every CEDAR server that runs jobs reports it in. `deadlineAt` and
+        `overdue` describe a running job and are empty otherwise. The properties after `failure`
+        belong to one kind of job each and are absent for the others.
+      properties:
+        command:
+          type: string
+          description: The command that started the job.
+          nullable: true
+        deadlineAt:
+          type: string
+          format: date-time
+          description: When a running job that reports nothing more will be believed
+            to have stopped.
+          nullable: true
+        failure:
+          type: string
+          description: "What went wrong, when the state is FAILED, ABANDONED or INTERRUPTED."
+          nullable: true
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        importStatus:
+          type: string
+          description: A value sets import's state under the name the caDSR ingestor
+            reads.
+          enum:
+          - NOT_YET_INITIATED
+          - IN_PROGRESS
+          - COMPLETE
+          - ERROR
+        jobId:
+          type: string
+        kind:
+          type: string
+          enum:
+          - search-index
+          - value-sets-import
+          - inclusion-subgraph
+        overdue:
+          type: boolean
+        progress:
+          allOf:
+          - $ref: "#/components/schemas/IndexingProgress"
+          description: How far a search index rebuild got.
         startedAt:
           type: string
           format: date-time
           nullable: true
-        status:
+        state:
           type: string
+          description: |
+            ABANDONED is a job whose claim was reset with `POST /jobs/{id}/reset`, which may still be
+            running. INTERRUPTED is a job the server did not survive.
           enum:
           - QUEUED
           - RUNNING
-          - SUCCEEDED
+          - COMPLETE
           - FAILED
+          - ABANDONED
+          - INTERRUPTED
         submittedAt:
           type: string
           format: date-time
+          description: When an inclusion-subgraph regeneration was asked for.
         unreadableArtifacts:
           type: array
-          description: The artifacts a succeeded job left as they were because the
-            artifact server answered something other than 200 for them. Their inclusion
-            arcs were neither refreshed nor removed. Empty when every artifact was
-            read; null until the job completes.
+          description: |
+            The artifacts a completed inclusion-subgraph regeneration left as they were because the
+            artifact server answered something other than 200 for them. Their inclusion arcs were
+            neither refreshed nor removed. Empty when every artifact was read; null until the job
+            completes.
           items:
             type: string
           nullable: true
       required:
-      - id
-      - status
-      - submittedAt
+      - jobId
+      - kind
+      - overdue
+      - state
   securitySchemes:
     api_key:
       description: "Your CEDAR API key, using the format 'apiKey <yourApiKey>'"
