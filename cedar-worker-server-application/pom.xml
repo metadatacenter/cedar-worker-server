@@ -35,10 +35,18 @@
       <groupId>org.metadatacenter</groupId>
       <artifactId>cedar-user-operations-library</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>org.metadatacenter</groupId>
       <artifactId>cedar-config-library</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.metadatacenter</groupId>
+      <artifactId>cedar-core-library</artifactId>
     </dependency>
 
     <dependency>
@@ -55,6 +63,10 @@
       <groupId>io.dropwizard</groupId>
       <artifactId>dropwizard-core</artifactId>
     </dependency>
+    <dependency>
+      <groupId>io.dropwizard</groupId>
+      <artifactId>dropwizard-jackson</artifactId>
+    </dependency>
 
     <dependency>
       <groupId>org.metadatacenter</groupId>
@@ -69,6 +81,10 @@
     <dependency>
       <groupId>io.dropwizard</groupId>
       <artifactId>dropwizard-hibernate</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish.jersey.core</groupId>
+      <artifactId>jersey-server</artifactId>
     </dependency>
 
     <dependency>
